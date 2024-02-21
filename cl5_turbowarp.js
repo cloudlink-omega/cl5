@@ -955,7 +955,7 @@ SOFTWARE.
             return {
                 id: 'cl5',
                 name: 'CL5',
-                docsURI: 'https://github.com/MikeDev101/cloudlink-omega/wiki/Client-Extension#cl5-blocks',
+                docsURI: 'https://github.com/cloudlink-omega/cl5/wiki/Extension',
                 blockIconURI: this.blockIconURI,
                 menuIconURI: this.menuIconURI,
                 color1: "#0FBD8C",

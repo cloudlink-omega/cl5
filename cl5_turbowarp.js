@@ -1291,25 +1291,6 @@ SOFTWARE.
                         },
                     },
                     {
-                        opcode: "broadcast_networked_list",
-                        blockType: "command",
-                        text: "Broadcast networked list [LISTNAME] to all peers using channel [CHANNEL] and wait for broadcast to finish sending? [WAIT]",
-                        arguments: {
-                            LISTNAME: {
-                                type: 'string',
-                                defaultValue: 'public cloud list',
-                            },
-                            CHANNEL: {
-                                type: 'string',
-                                defaultValue: 'default',
-                            },
-                            WAIT: {
-                                type: 'Boolean',
-                                defaultValue: false,
-                            },
-                        },
-                    },
-                    {
                         opcode: "make_broadcast_networked_list",
                         blockType: "command",
                         text: "Make list [LIST] a broadcastable networked list named [LISTNAME] in channel [CHANNEL]",
@@ -1346,29 +1327,6 @@ SOFTWARE.
                             PEER: {
                                 type: 'string',
                                 defaultValue: 'ID',
-                            },
-                        },
-                    },
-                    {
-                        opcode: "send_private_networked_list",
-                        blockType: "command",
-                        text: "Send private networked list [LISTNAME] to peer [PEER] using channel [CHANNEL] and wait for list to finish sending? [WAIT]",
-                        arguments: {
-                            LISTNAME: {
-                                type: 'string',
-                                defaultValue: 'my private cloud list',
-                            },
-                            CHANNEL: {
-                                type: 'string',
-                                defaultValue: 'default',
-                            },
-                            PEER: {
-                                type: 'string',
-                                defaultValue: 'ID',
-                            },
-                            WAIT: {
-                                type: 'Boolean',
-                                defaultValue: false,
                             },
                         },
                     },
@@ -2563,36 +2521,6 @@ SOFTWARE.
                 console.log(listsStorage);
                 resolve();
             })
-        }
-
-        send_private_networked_list(args, util) {
-            console.log(args, util);
-            return; // Temporarily disable the rest of this function
-
-            const {LISTNAME, CHANNEL, PEER, WAIT} = args;
-
-            // Check if peer exists
-            if (!OmegaRTCInstance.doesPeerExist(PEER)) {
-                console.warn(`Peer ${PEER} not found.`);
-                return;
-            }
-
-            // Check if channel exists
-            if (!OmegaRTCInstance.doesPeerChannelExist(PEER, CHANNEL)) {
-                console.warn(`Channel ${CHANNEL} does not exist for peer ${PEER}`);
-                return;
-            }
-
-            // Get channel data storage
-            const dataStorage = OmegaRTCInstance.dataChannels.get(PEER).get(CHANNEL).dataStorage;
-        }
-
-        broadcast_networked_list(args, util) {
-            console.log(args, util);
-            return; // Temporarily disable the rest of this function
-
-            const {LIST, CHANNEL, WAIT} = args;
-
         }
 
         on_channel_private_networked_list() {

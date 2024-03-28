@@ -24,6 +24,26 @@ SOFTWARE.
 // TODO: reimplement VM variable/list access: see old version https://github.com/MikeDev101/cloudlink-omega/blob/bde3426ce537c6adae0ca3da3d47db7473513902/client/cloudlinkomega_turbowarp.js
 
 (function (Scratch) {
+
+    function makeValueSafeForScratch(data) {
+        try {
+            // Check if data is a string
+            if (typeof data === 'string') {
+                return data;
+            // Check if data is an object/JSON
+            } else if (typeof data === 'object' && data !== null) {
+                return JSON.stringify(data);
+            } else {
+                // Return data as-is for other types
+                return data;
+            }
+        } catch (error) {
+            // Return data as-is if conversion fails
+            console.error(`Error making data ${data} vm-safe: ${error}`);
+            return data;
+        }
+    }
+
     // Define class to provide message encryption (ECDH-P256-AES-GCM with SPKI-BASE64 public keys)
     class OmegaEncryption {
         constructor() {
@@ -923,13 +943,220 @@ SOFTWARE.
         }
     }
 
-    // Initialize the extension classes so the two extensions can communicate
+    class NetworkedScratchData {
+        constructor() {
+            // List update events for external code to subscribe to.
+            this.listUpdateEvent = null;
+
+            // Variable update events for external code to subscribe to.
+            this.varUpdateEvent = null;
+
+            // Keep track of all blessed values and recreate them if they get deleted.
+            this.blessVarTracker = new Map();
+            this.blessListTracker = new Map();
+        }
+
+        update(runtime) {
+            // Check the runtime for any deleted variables/lists. If they were deleted, remove them from the tracker.
+
+            // Variables
+            for (const [key, value] of this.blessVarTracker) {
+                var exists = false;
+
+                // Scan through all targets in the stage and check if the variable is still in use. If not, remove it from the tracker.
+                for (const target of runtime.targets) {
+                    if (target.variables.hasOwnProperty(value.id) && !exists) {
+                        exists = true;
+                        break;
+                    }
+                }
+                if (!exists) {
+                    console.log("Variable", key, "was deleted, removing from tracker.");
+                    this.blessVarTracker.delete(key);
+                    this.varHashes.delete(key);
+                }
+            }
+
+            // Lists
+            for (const [key, value] of this.blessListTracker) {
+                var exists = false;
+
+                // Scan through all targets in the stage and check if the list is still in use. If not, remove it from the tracker.
+                for (const target of runtime.targets) {
+                    if (target.variables.hasOwnProperty(value.id) && !exists) {
+                        exists = true;
+                        break;
+                    }
+                }
+                if (!exists) {
+                    console.log("List", key, "was deleted, removing from tracker.");
+                    this.blessListTracker.delete(key);
+                    this.listHashes.delete(key);
+                }
+            }
+
+            /*
+                Rebless values and verify hashes.
+                If values were suddently unblessed (e.g. a list was cleared
+                with the "Delete all of [list]" block), rebless them.
+
+                If hashes don't match, an untriggered event has occured,
+                manually requiring an update.
+            */
+            
+            // Variables
+            for (const [key, value] of this.blessVarTracker) {
+                if (!value.hasOwnProperty('bless')) {
+                    console.log("Reblessing variable", key);
+                    this.makeNetworkedVariable(value);
+                }
+            }
+
+            // Lists
+            for (const [key, value] of this.blessListTracker) {
+                if (!value.value.hasOwnProperty('bless')) {
+                    console.log("Reblessing list", key);
+                    this.makeNetworkedList(value);
+
+                    // It is very likely that the list was erased by the "Delete all of [list]" block.
+                    // console.log(this.listUpdateEvent);
+                }
+            }
+
+        }
+
+        onListUpdate(parent, myList, method) {
+            console.log("List", myList.name, "updated to ", myList.value, "using method", method);
+            
+            // Prevent a network message loop by identifying where the message update came from.
+            if (myList.isExtUpdated) {
+                myList.isExtUpdated = false;
+                return;
+            }
+            
+            // TODO: Send the new list state over the network
+            // console.log(parent.listUpdateEvent);
+        };
+
+        onVariableChanged(parent, myVar) {
+            console.log("Variable", myVar.name, "updated to", myVar.value);
+            
+            // Prevent a network message loop by identifying where the message update came from.
+            if (myVar.isExtUpdated) {
+                myVar.isExtUpdated = false;
+                return;
+            }
+            
+            // TODO: Send the new variable state over the network
+            // console.log(parent.varUpdateEvent);
+        };
+
+        makeNetworkedVariable(myVar) {
+            const self = this;
+
+            // Don't recreate an existing networkable variable
+            if (myVar.hasOwnProperty('bless')) {
+                console.warn("Variable", myVar.name, "is already networkable.");
+                return;
+            }
+
+            // Backup the original variable state
+            const temp = myVar.value;
+
+            // Use Object.defineProperty to define a property with custom setter
+            Object.defineProperty(myVar, 'value', {
+                enumerable: false,
+                configurable: true,
+                get: function() {
+                    return this._myProperty;
+                },
+                set: function(value) {
+                    this._myProperty = value;
+                    self.onVariableChanged(self, myVar);
+                }
+            });
+            
+            /*
+                Create new property on the variable object so it can determine if the value was updated by the vm or the extension.
+                If false, the Scratch VM was responsible for the most recent update. (send the value over the network!)
+                If true, the CL5 extension updated the value (do not send the value over the network, this can cause a loop!)
+            */
+            myVar.isExtUpdated = true;
+
+            // Restore the original variable state
+            myVar.value = temp;
+
+            // Bless the variable so we don't accidentally re-run this function.
+            myVar.bless = true;
+
+            console.log("Made variable", myVar.name, "networkable.");
+
+            // Store the variable in the tracker
+            self.blessVarTracker.set(myVar.name, myVar);
+        };
+
+        makeNetworkedList(myList) {
+            const self = this;
+
+            // Don't recreate an existing networkable list
+            if (myList.hasOwnProperty('bless')) {
+                console.warn("List", myList.name, "is already networkable.");
+                return;
+            }
+
+            // Backup the original list state
+            const temp = myList.value;
+
+            // Given a variable target, modify the property so that we can listen to changes.
+            ['push', 'pop', 'shift', 'unshift', 'splice', 'sort', 'reverse', 'delete'].forEach(function(method) {
+                let original = Array.prototype[method];
+                Object.defineProperty(myList.value, method, {
+                    enumerable: false,
+                    configurable: true,
+                    writable: true,
+                    value: function(...args) {
+                        let result = original.apply(this, args);
+                        self.onListUpdate(self, myList, method);
+                        return result;
+                    }
+                });
+            });
+        
+            // Bless the list so that the extension can detect if its properties gets reset by the "Delete all of [list]" block.
+            Object.defineProperty(myList.value, 'bless', {
+                enumerable: false,
+                configurable: true,
+                writable: true,
+                value: function() {
+                    return true;
+                }
+            });
+            
+            /*
+                Create new property on the list object so it can determine if the value was updated by the vm or the extension.
+                If false, the Scratch VM was responsible for the most recent update. (send the value over the network!)
+                If true, the CL5 extension updated the value (do not send the value over the network, this can cause a loop!)
+            */
+            myList.isExtUpdated = true;
+
+            // Restore the list state.
+            myList.value = temp;
+
+            console.log("Made list", myList.name, "networkable.");
+
+            // Store the list in the tracker
+            self.blessListTracker.set(myList.name, myList);
+        };
+    }
+
+    // Initialize the extension classes
     const OmegaSignalingInstance = new OmegaSignaling();
     const OmegaRTCInstance = new OmegaRTC();
     const OmegaEncryptionInstance = new OmegaEncryption();
+    const NetworkedScratchDataInstance = new NetworkedScratchData();
 
     // Generate this peer's public / private key pair. Comment out to disable handshake offer/answer/ICE encryption (NOT RECOMMENDED)
-    OmegaEncryptionInstance.generateKeyPair();
+    // OmegaEncryptionInstance.generateKeyPair();
 
     // Define the extension for the CL5 protocol
     class CloudLink5 {
@@ -1275,25 +1502,9 @@ SOFTWARE.
                     },
                     "---",
                     {
-                        opcode: "on_channel_broadcast_networked_list",
-                        blockType: "hat",
-                        text: "When I get a broadcasted networked list named [LISTNAME] in channel [CHANNEL]",
-                        isEdgeActivated: false,
-                        arguments: {
-                            LISTNAME: {
-                                type: 'string',
-                                defaultValue: 'my public cloud list',
-                            },
-                            CHANNEL: {
-                                type: 'string',
-                                defaultValue: 'default',
-                            },
-                        },
-                    },
-                    {
-                        opcode: "make_broadcast_networked_list",
+                        opcode: "make_global_networked_list",
                         blockType: "command",
-                        text: "Make list [LIST] a broadcastable networked list named [LISTNAME] in channel [CHANNEL]",
+                        text: "Make list [LIST] a global networked list named [LISTNAME]",
                         arguments: {
                             LIST: {
                                 type: 'string',
@@ -1303,37 +1514,12 @@ SOFTWARE.
                                 type: 'string',
                                 defaultValue: 'public cloud list',
                             },
-                            CHANNEL: {
-                                type: 'string',
-                                defaultValue: 'default',
-                            },
-                        },
-                    },
-                    "---",
-                    {
-                        opcode: "on_channel_private_networked_list",
-                        blockType: "hat",
-                        text: "When I get a private networked list named [LISTNAME] from peer [PEER] in channel [CHANNEL]",
-                        isEdgeActivated: false,
-                        arguments: {
-                            LISTNAME: {
-                                type: 'string',
-                                defaultValue: 'private cloud list',
-                            },
-                            CHANNEL: {
-                                type: 'string',
-                                defaultValue: 'default',
-                            },
-                            PEER: {
-                                type: 'string',
-                                defaultValue: 'ID',
-                            },
                         },
                     },
                     {
                         opcode: "make_private_networked_list",
                         blockType: "command",
-                        text: "Make list [LIST] a private networked list named [LISTNAME] with peer [PEER] in channel [CHANNEL]",
+                        text: "Make list [LIST] a private networked list named [LISTNAME] with peer [PEER]",
                         arguments: {
                             LIST: {
                                 type: 'string',
@@ -1342,10 +1528,6 @@ SOFTWARE.
                             LISTNAME: {
                                 type: 'string',
                                 defaultValue: 'private cloud list',
-                            },
-                            CHANNEL: {
-                                type: 'string',
-                                defaultValue: 'default',
                             },
                             PEER: {
                                 type: 'string',
@@ -1468,25 +1650,6 @@ SOFTWARE.
                     },
                 }
             };
-        }
-
-        makeValueSafeForScratch(data) {
-            try {
-                // Check if data is a string
-                if (typeof data === 'string') {
-                    return data;
-                // Check if data is an object/JSON
-                } else if (typeof data === 'object' && data !== null) {
-                    return JSON.stringify(data);
-                } else {
-                    // Return data as-is for other types
-                    return data;
-                }
-            } catch (error) {
-                // Return data as-is if conversion fails
-                console.error(`Error making data ${data} vm-safe: ${error}`);
-                return data;
-            }
         }
 
         async clOmegaProtocolMessageHandler(remotePeerId, channel, message) {
@@ -2426,71 +2589,30 @@ SOFTWARE.
             } else return "";
         }
 
-        make_private_networked_list(args, util) {
-            const {LIST, LISTNAME, PEER, CHANNEL} = args;
+        make_private_networked_list({LIST, LISTNAME, PEER}, util) {
             const target = util.target;
             const list = target.lookupVariableByNameAndType(LIST, "list");
-            console.log(args, list, target);
-            
+
+            // Check if list exists
+            if (!list) {
+                console.warn(`List ${LIST} not found.`);
+                return;
+            }
+
             // Check if peer exists
             if (!OmegaRTCInstance.doesPeerExist(PEER)) {
                 console.warn(`Peer ${PEER} not found.`);
                 return;
             }
 
-            // Check if channel exists
-            if (!OmegaRTCInstance.doesPeerChannelExist(PEER, CHANNEL)) {
-                console.warn(`Channel ${CHANNEL} does not exist for peer ${PEER}`);
-                return;
-            }
-
-            // Check if list exists
-            if (!list) {
-                console.warn(`List ${LIST} not found.`);
-                return;
-            }
-
-            // Get channel data storage
-            const dataStorage = OmegaRTCInstance.dataChannels.get(PEER).get(CHANNEL).dataStorage;
-
-            // Create lists if it doesn't exist
-            if (!dataStorage.get("lists")) {
-                dataStorage.set("lists", new Map());
-            }
-
-            // Setup list
-            const listsStorage = dataStorage.get("lists");
-            return new Promise((resolve, reject) => {
-
-                // If the private list storage doesn't have the channel, make it
-                if (!listsStorage.has(CHANNEL)) {
-                    listsStorage.set(CHANNEL, new Map());
-                }
-
-                // Create networked list storage if it doesn't exist
-                if (!listsStorage.get(CHANNEL).has(LISTNAME)) {
-                    listsStorage.get(CHANNEL).set(LISTNAME, new Map());
-                }
-
-                // If this target hasn't made a reference array yet, create it
-                if (!listsStorage.get(CHANNEL).get(LISTNAME).has(target)) {
-                    listsStorage.get(CHANNEL).get(LISTNAME).set(target, list);
-                } else {
-                    console.warn(`List ${LIST} already exists with networked list name ${LISTNAME} in target ${target.id} with peer ${PEER} in channel ${CHANNEL}.`);
-                }
-
-                console.log(listsStorage);
-                resolve();
-            })
+            // Testing code
+            NetworkedScratchDataInstance.makeNetworkedList(list);
         }
 
-        make_broadcast_networked_list(args, util) {
+        make_global_networked_list({LIST, LISTNAME}, util) {
             const self = this;
-            const {LIST, LISTNAME, CHANNEL} = args;
-            const listsStorage = self.globalListStorage;
             const target = util.target;
             const list = target.lookupVariableByNameAndType(LIST, "list");
-            console.log(args, list, target);
 
             // Check if list exists
             if (!list) {
@@ -2498,37 +2620,8 @@ SOFTWARE.
                 return;
             }
 
-            // Setup global networked list
-            return new Promise((resolve, reject) => {
-
-                // If the global list storage doesn't have the channel, make it
-                if (!listsStorage.has(CHANNEL)) {
-                    listsStorage.set(CHANNEL, new Map());
-                }
-
-                // Create networked list storage if it doesn't exist
-                if (!listsStorage.get(CHANNEL).has(LISTNAME)) {
-                    listsStorage.get(CHANNEL).set(LISTNAME, new Map());
-                }
-
-                // Reference the list
-                if (!listsStorage.get(CHANNEL).get(LISTNAME).has(target)) {
-                    listsStorage.get(CHANNEL).get(LISTNAME).set(target, list);
-                } else {
-                    console.warn(`List ${LIST} already exists with networked list name ${LISTNAME} in target ${target.id}.`);
-                }
-
-                console.log(listsStorage);
-                resolve();
-            })
-        }
-
-        on_channel_private_networked_list() {
-
-        }
-
-        on_channel_broadcast_networked_list() {
-
+            // Testing code
+            NetworkedScratchDataInstance.makeNetworkedList(list);
         }
 
         on_private_message({PEER, CHANNEL}) {
@@ -2545,13 +2638,24 @@ SOFTWARE.
         }
     };
 
-    /*
+    
     Scratch.vm.runtime.on('BEFORE_EXECUTE', () => {
-        Scratch.vm.runtime.startHats('cl5_on_private_message');
-        Scratch.vm.runtime.startHats('cl5_on_broadcast_message');
-        Scratch.vm.runtime.startHats('cl5_on_channel_private_networked_list');
-        Scratch.vm.runtime.startHats('cl5_on_channel_broadcast_networked_list');
-    });*/
 
-    Scratch.extensions.register(new CloudLink5(Scratch));
+        // Check if lists/variables need to be re-blessed or removed from the tracker
+        // TODO: this has bad performance (loops through loops), will be fixed later (hopefully)
+        NetworkedScratchDataInstance.update(Scratch.vm.runtime);
+        
+        // Scratch.vm.runtime.startHats('cl5_on_private_message');
+        // Scratch.vm.runtime.startHats('cl5_on_broadcast_message');
+        // Scratch.vm.runtime.startHats('cl5_on_channel_private_networked_list');
+        // Scratch.vm.runtime.startHats('cl5_on_channel_broadcast_networked_list');
+    });
+
+    const ExtensionInstance = new CloudLink5(Scratch)
+    Scratch.extensions.register(ExtensionInstance);
+
+    // Expose the extension instance for developers to use
+    console.log("Exposing CL5 extension as ", ExtensionInstance);
+    console.log("Exposing encryption library as ", OmegaEncryptionInstance);
+    console.log("Exposing networked scratch data library as ", NetworkedScratchDataInstance);
 })(Scratch);

@@ -666,6 +666,8 @@ SOFTWARE.
                 onAnswer: null,
                 listeners: {},
                 onDiscover: null,
+                onLobbyList: null,
+                onLobbyInfo: null,
             };
             this.lobbyList = [];
             this.lobbyInfo = {};
@@ -767,6 +769,14 @@ SOFTWARE.
                     this.keepalive = setTimeout(() => {
                         this.sendMessage({ opcode: 'KEEPALIVE' });
                     }, 5000); // 5 seconds delay
+                    break;
+                case "LOBBY_LIST":
+                    this.lobbyList = payload;
+                    if (this.messageHandlers.onLobbyList) this.messageHandlers.onLobbyList();
+                    break;
+                case "LOBBY_INFO":
+                    this.lobbyInfo = payload;
+                    if (this.messageHandlers.onLobbyInfo) this.messageHandlers.onLobbyInfo();
                     break;
                 case "LOBBY_FULL":
                     console.warn("Lobby is full.");
@@ -973,6 +983,14 @@ SOFTWARE.
 
         onClose(tag, callback) {
             this.messageHandlers.onClose[tag] = callback;
+        }
+
+        onLobbyInfo(callback) {
+            this.messageHandlers.onLobbyInfo = callback;
+        }
+
+        onLobbyList(callback) {
+            this.messageHandlers.onLobbyList = callback;
         }
     }
 
@@ -1485,9 +1503,20 @@ SOFTWARE.
                     },
                     "---",
                     {
+                        opcode: 'lobby_list',
+                        blockType: 'reporter',
+                        text: 'All public lobbies',
+                    },
+                    {
                         opcode: 'query_lobbies',
                         blockType: 'command',
-                        text: 'Get a list of all public lobbies',
+                        text: 'Refresh public lobbies list',
+                    },
+                    "---",
+                    {
+                        opcode: 'lobby_info',
+                        blockType: 'reporter',
+                        text: 'Lobby info',
                     },
                     {
                         opcode: 'query_lobby',
@@ -1500,6 +1529,7 @@ SOFTWARE.
                             },
                         }
                     },
+                    "---",
                     {
                         opcode: 'init_host_mode',
                         blockType: 'command',
@@ -2359,13 +2389,45 @@ SOFTWARE.
         }
 
         query_lobbies() {
-            // Send command
-            OmegaSignalingInstance.sendGetLobbyList();
+            return new Promise((resolve) => {
+                if (!OmegaSignalingInstance.socket) {
+                    console.warn('Signaling server not connected');
+                    reject();
+                    return;
+                }
+
+                // Send command
+                OmegaSignalingInstance.sendGetLobbyList();
+
+                OmegaSignalingInstance.onLobbyList(() => {
+                    resolve()
+                })
+            })
+        }
+
+        lobby_list() {
+            return makeValueSafeForScratch(OmegaSignalingInstance.lobbyList);
         }
 
         query_lobby({LOBBY}) {
-            // Send command
-            OmegaSignalingInstance.sendGetLobbyInfo(LOBBY);
+            return new Promise((resolve) => {
+                if (!OmegaSignalingInstance.socket) {
+                    console.warn('Signaling server not connected');
+                    reject();
+                    return;
+                }
+
+                // Send command
+                OmegaSignalingInstance.sendGetLobbyInfo(LOBBY);
+
+                OmegaSignalingInstance.onLobbyInfo(() => {
+                    resolve()
+                })
+            })
+        }
+
+        lobby_info() {
+            return makeValueSafeForScratch(OmegaSignalingInstance.lobbyInfo);
         }
 
         init_host_mode({LOBBY, PEERS, PASSWORD, CLAIMCONFIG}) {

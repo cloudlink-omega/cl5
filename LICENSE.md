@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (C) 2024 Mike Renaker "MikeDEV".
+Copyright © 2024 Mike Renaker "MikeDEV".
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

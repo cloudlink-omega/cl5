@@ -2,7 +2,7 @@
 IF YOU ARE READING THIS, PLEASE LOAD THIS EXTENSION UNSANDBOXED!
 
 CloudLink 5 Protocol extension for Scratch 3 (Turbowarp-flavored)
-Copyright (C) 2024 Mike Renaker "MikeDEV".
+Copyright © 2024 Mike Renaker "MikeDEV".
 
 MIT License
 
@@ -42,6 +42,10 @@ SOFTWARE.
         }
         return id.join('');
     };
+
+    // Helper function for checking if a value is not undefined
+    let notUndefined = value => value !== undefined;
+    let isUndefined = value => value === undefined;
 
     // Helper function for making data vm-safe
     function makeValueSafeForScratch(data) {
@@ -1001,7 +1005,10 @@ SOFTWARE.
 
     // Define class to modify vm variables for networking
     class NetworkedScratchData {
-        constructor() {
+        constructor(rtc) {
+            // Passthrough WebRTC interface
+            this.WebRTC = rtc;
+
             // Keep track of all blessed values and recreate them if they get deleted.
             this.blessVarTracker = new Array();
             this.blessListTracker = new Array();
@@ -1076,8 +1083,6 @@ SOFTWARE.
         }
 
         update(runtime) {
-            let notUndefined = value => value !== undefined;
-
             // Check if any lists need to be reblessed or deleted
             this.blessListTracker.forEach(myListId => {
                 
@@ -1145,7 +1150,21 @@ SOFTWARE.
                     console.log("List", myList.name, "was reset to", eventData);
                     
                     if (!myList.wasNetworkUpdated) {
-                        // TODO: transmit the new list value over the network.
+
+                        // Transmit the new list value over the network. Send and do not wait for the new list change to be sent.
+                        for (const remotePeerId of Object.values(this.WebRTC.getPeers())) {
+                            this.WebRTC.sendData(
+                                remotePeerId,
+                                "default",
+                                "G_LIST",
+                                {
+                                    id: myList.id,
+                                    method: "reset",
+                                    value: eventData,
+                                },
+                                false,
+                            );
+                        }
                     }
 
                     break;
@@ -1154,7 +1173,23 @@ SOFTWARE.
                     console.log("List", myList.name, "entry", eventData.property, "was set to", eventData.value);
 
                     if (!myList.wasNetworkUpdated) {
-                        // TODO: transmit entry index/value pair over the network with push intent.
+
+                        // Transmit entry index/value pair over the network with push intent. Send and do not wait for the new list change to be sent.
+                        for (const remotePeerId of Object.values(this.WebRTC.getPeers())) {
+                            this.WebRTC.sendData(
+                                remotePeerId,
+                                "default",
+                                "G_LIST",
+                                {
+                                    id: myList.id,
+                                    method: "set",
+                                    index: parseInt(eventData.property),
+                                    value: eventData.value,
+                                },
+                                false,
+                            );
+                        }
+
                     }
                     
                     break;
@@ -1163,7 +1198,23 @@ SOFTWARE.
                     console.log("List", myList.name, "entry", eventData.property, "was replaced with", eventData.value);
                     
                     if (!myList.wasNetworkUpdated) {
-                        // TODO: transmit entry index/value pair over the network with splice intent.
+
+                        // Transmit entry index/value pair over the network with push intent. Send and do not wait for the new list change to be sent.
+                        for (const remotePeerId of Object.values(this.WebRTC.getPeers())) {
+                            this.WebRTC.sendData(
+                                remotePeerId,
+                                "default",
+                                "G_LIST",
+                                {
+                                    id: myList.id,
+                                    method: "replace",
+                                    index: parseInt(eventData.property),
+                                    value: eventData.value,
+                                },
+                                false,
+                            );
+                        }
+
                     }
 
                     break;
@@ -1176,6 +1227,8 @@ SOFTWARE.
             } else {
                 console.log("List", myList.name, "was updated by the VM.");
             }
+
+            myList._monitorUpToDate = false;
         };
 
         onVariableChange(myVar) {
@@ -1258,7 +1311,7 @@ SOFTWARE.
     const OmegaSignalingInstance = new OmegaSignaling();
     const OmegaRTCInstance = new OmegaRTC();
     const OmegaEncryptionInstance = new OmegaEncryption();
-    const NetworkedScratchDataInstance = new NetworkedScratchData();
+    const NetworkedScratchDataInstance = new NetworkedScratchData(OmegaRTCInstance);
 
     // Generate this peer's public / private key pair. Comment out to disable handshake offer/answer/ICE encryption (NOT RECOMMENDED)
     OmegaEncryptionInstance.generateKeyPair();
@@ -1911,6 +1964,35 @@ SOFTWARE.
                         break;
                     
                     case "G_LIST": // Global insecure list
+
+                        // Find list by ID
+                        var myList;
+                        for (const target of this.runtime.targets) {
+                            if (notUndefined(target.lookupVariableById(payload.id))) {
+                                myList = target.variables[payload.id];
+                                break;
+                            }
+                        };
+
+                        // If not found, exit
+                        if (isUndefined(myList)) return;
+
+                        myList.wasNetworkUpdated = true;
+                        switch (payload.method) {
+                            case "set":
+                                myList.value[payload.index] = payload.value;
+                                break;
+
+                            // BUG: this causes an infinite loop for some reason. Not sure why.
+                            case "reset":
+                                myList.value = payload.value;
+                                break;
+                            
+                            case "replace":
+                                myList.value[payload.index] = payload.value;
+                                break;
+                        }
+
                         break;
                     
                     case "P_MSG": // Private secure message
@@ -2865,6 +2947,10 @@ SOFTWARE.
         }
 
         make_private_networked_list({LIST, PEER}, util) {
+
+            // Temporarily disable this function due to a bug 
+            return;
+
             const target = util.target;
             const list = target.lookupVariableByNameAndType(LIST, "list");
 
@@ -2880,14 +2966,24 @@ SOFTWARE.
                 return;
             }
 
-            // Testing code
-            NetworkedScratchDataInstance.makeNetworkedList(list);
+            // Check if list is already networked
+            if (list.hasOwnProperty("bless")) {
+                console.warn(`List ${LIST} is already networked.`);
+                return;
+            }
+
+            // Create networked list
+            NetworkedScratchDataInstance.makeNetworkedList(util, list);
 
             // Backup settings
             backupSettings(this.runtime);
         }
 
         make_global_networked_list({LIST}, util) {
+
+            // Temporarily disable this function due to a bug 
+            return;
+
             const target = util.target;
             const list = target.lookupVariableByNameAndType(LIST, "list");
 

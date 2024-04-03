@@ -4,6 +4,8 @@ IF YOU ARE READING THIS, PLEASE LOAD THIS EXTENSION UNSANDBOXED!
 CloudLink 5 Protocol extension for Scratch 3 (Turbowarp-flavored)
 Copyright (C) 2024 Mike Renaker "MikeDEV".
 
+MIT License
+
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -23,7 +25,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// TODO: reimplement VM variable/list access: see old version https://github.com/MikeDev101/cloudlink-omega/blob/bde3426ce537c6adae0ca3da3d47db7473513902/client/cloudlinkomega_turbowarp.js
 (function (Scratch) {
 
     // DO NOT MODIFY THESE CONSTANTS, THEY ARE USED TO LOAD/SAVE THE EXTENSION'S SETTINGS! DOING SO WILL VERY LIKELY BREAK PROJECTS.

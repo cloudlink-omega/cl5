@@ -741,7 +741,6 @@ SOFTWARE.
 
         handleMessage(message) {
             const { opcode, payload, origin, listener } = message;
-            console.log("[Signaling | RX]", message);
             switch (opcode) {
                 case 'INIT_OK':
                     console.log('Signaling login successful.');
@@ -923,7 +922,6 @@ SOFTWARE.
 
         sendMessage(message) {
             if (this.socket.readyState === WebSocket.OPEN) {
-                console.log("[Signaling | TX]", message)
                 this.socket.send(JSON.stringify(message));
             } else {
                 console.error('WebSocket connection not open. Cannot send message:', message);
@@ -1012,6 +1010,9 @@ SOFTWARE.
             // Keep track of all blessed values and recreate them if they get deleted.
             this.blessVarTracker = new Array();
             this.blessListTracker = new Array();
+			
+			// Keep track of variable state changes
+			this.networkUpdateTracker = new Object();
         }
 
         // Create a function to convert a variable into a proxy
@@ -1046,22 +1047,25 @@ SOFTWARE.
 
         // Create a function to convert an array into a proxy
         createArrayProxy(myList) {
-            let array = myList.value;
+			let array = myList.value;
             let eventHandlers = [];
         
             const runEvents = (type, data) => {
                 eventHandlers.forEach(handler => handler(type, data));
             };
-         
+			
             const proxy = new Proxy(array, {
                 set(target, property, value) {
-                    if (property !== 'length' && !isNaN(property)) {
-                        if (property < target.length) {
-                            runEvents('replace', {property, value});
-                        } else {
-                            runEvents('set', {property, value});
-                        }
-                    }
+					if (property === 'length') {
+						runEvents('length', value);
+					} else if (!isNaN(property)) {
+						if (property < target.length) {
+							runEvents('replace', {property, value});
+						} else {
+							runEvents('set', {property, value});
+						}
+					}
+					
                     target[property] = value;
                     return true;
                 }
@@ -1085,6 +1089,13 @@ SOFTWARE.
         update(runtime) {
             // Check if any lists need to be reblessed or deleted
             this.blessListTracker.forEach(myListId => {
+				
+				// Check if the network origin tracker needs updating
+				if (!this.networkUpdateTracker.hasOwnProperty(myListId)) {
+					this.networkUpdateTracker[myListId] = new Object();
+					this.networkUpdateTracker[myListId].current = false;
+					this.networkUpdateTracker[myListId].last = true;
+				}
                 
                 // Check all targets and see if they have this list
                 let exists = false;
@@ -1098,7 +1109,7 @@ SOFTWARE.
 
                 // If the list no longer exists, delete it from the tracker
                 if (!exists) {
-                    console.log("Networked list ID no longer exists: ", myListId);
+					delete this.networkUpdateTracker[myListId];
                     this.blessListTracker.splice(this.blessListTracker.indexOf(myListId), 1);
                     backupSettings(runtime);
                 };
@@ -1115,6 +1126,13 @@ SOFTWARE.
 
             // Check if any variables need to be reblessed or deleted
             this.blessVarTracker.forEach(myVarId => {
+				
+				// Check if the network origin tracker needs updating
+				if (!this.networkUpdateTracker.hasOwnProperty(myVarId)) {
+					this.networkUpdateTracker[myVarId] = new Object();
+					this.networkUpdateTracker[myVarId].current = false;
+					this.networkUpdateTracker[myVarId].last = true;
+				}
                 
                 // Check all targets and see if they have this variable
                 let exists = false;
@@ -1128,7 +1146,7 @@ SOFTWARE.
 
                 // If the variable no longer exists, delete it from the tracker
                 if (!exists) {
-                    console.log("Networked variable ID no longer exists: ", myListId);
+					delete this.networkUpdateTracker[myVarId];
                     this.blessVarTracker.splice(this.blessVarTracker.indexOf(myVarId), 1);
                     backupSettings(runtime);
                 };
@@ -1145,105 +1163,149 @@ SOFTWARE.
         }
 
         onListChange(myList, eventType, eventData) {
-            switch (eventType) {
-                case 'reset':
-                    console.log("List", myList.name, "was reset to", eventData);
-                    
-                    if (!myList.wasNetworkUpdated) {
+			// Refresh the monitor view of the list.
+			myList._monitorUpToDate = false;
+			
+			if (this.networkUpdateTracker[myList.id].current) {
+				this.networkUpdateTracker[myList.id].current = false;
+				this.networkUpdateTracker[myList.id].last = true;
+				
+			} else {
+				switch (eventType) {
+					case 'reset':
+						
+						// Mitigate network loop bug
+						if (this.networkUpdateTracker[myList.id].last) {
+							this.networkUpdateTracker[myList.id].last = false;
+							return;
+						};
+						
+						// Transmit the new list value over the network. Send and do not wait for the new list change to be sent.
+						for (const remotePeerId of Object.values(this.WebRTC.getPeers())) {
+							this.WebRTC.sendData(
+								remotePeerId,
+								"default",
+								"G_LIST",
+								{
+									id: myList.id,
+									method: "reset",
+									value: eventData,
+								},
+								false,
+							);
+						};
 
-                        // Transmit the new list value over the network. Send and do not wait for the new list change to be sent.
-                        for (const remotePeerId of Object.values(this.WebRTC.getPeers())) {
-                            this.WebRTC.sendData(
-                                remotePeerId,
-                                "default",
-                                "G_LIST",
-                                {
-                                    id: myList.id,
-                                    method: "reset",
-                                    value: eventData,
-                                },
-                                false,
-                            );
-                        }
-                    }
-
-                    break;
-                
-                case 'set':
-                    console.log("List", myList.name, "entry", eventData.property, "was set to", eventData.value);
-
-                    if (!myList.wasNetworkUpdated) {
-
-                        // Transmit entry index/value pair over the network with push intent. Send and do not wait for the new list change to be sent.
-                        for (const remotePeerId of Object.values(this.WebRTC.getPeers())) {
-                            this.WebRTC.sendData(
-                                remotePeerId,
-                                "default",
-                                "G_LIST",
-                                {
-                                    id: myList.id,
-                                    method: "set",
-                                    index: parseInt(eventData.property),
-                                    value: eventData.value,
-                                },
-                                false,
-                            );
-                        }
-
-                    }
-                    
-                    break;
-                
-                case 'replace':
-                    console.log("List", myList.name, "entry", eventData.property, "was replaced with", eventData.value);
-                    
-                    if (!myList.wasNetworkUpdated) {
-
-                        // Transmit entry index/value pair over the network with push intent. Send and do not wait for the new list change to be sent.
-                        for (const remotePeerId of Object.values(this.WebRTC.getPeers())) {
-                            this.WebRTC.sendData(
-                                remotePeerId,
-                                "default",
-                                "G_LIST",
-                                {
-                                    id: myList.id,
-                                    method: "replace",
-                                    index: parseInt(eventData.property),
-                                    value: eventData.value,
-                                },
-                                false,
-                            );
-                        }
-
-                    }
-
-                    break;
-            }
-
-            // Reset flag if list was updated by the network
-            if (myList.wasNetworkUpdated) {
-                console.log("List", myList.name, "was updated by the network.");
-                myList.wasNetworkUpdated = false;
-            } else {
-                console.log("List", myList.name, "was updated by the VM.");
-            }
-
-            myList._monitorUpToDate = false;
+						break;
+					
+					case 'set':
+					
+						// Mitigate network loop bug
+						if (this.networkUpdateTracker[myList.id].last) {
+							this.networkUpdateTracker[myList.id].last = false;
+							return;
+						};
+						
+						// Transmit entry index/value pair over the network with push intent. Send and do not wait for the new list change to be sent.
+						for (const remotePeerId of Object.values(this.WebRTC.getPeers())) {
+							this.WebRTC.sendData(
+								remotePeerId,
+								"default",
+								"G_LIST",
+								{
+									id: myList.id,
+									method: "set",
+									index: eventData.property,
+									value: eventData.value,
+								},
+								false,
+							);
+						};
+						
+						break;
+					
+					case 'replace':
+						
+						// Mitigate network loop bug
+						if (this.networkUpdateTracker[myList.id].last) {
+							this.networkUpdateTracker[myList.id].last = false;
+							return;
+						};
+						
+						// Transmit entry index/value pair over the network with push intent. Send and do not wait for the new list change to be sent.
+						for (const remotePeerId of Object.values(this.WebRTC.getPeers())) {
+							this.WebRTC.sendData(
+								remotePeerId,
+								"default",
+								"G_LIST",
+								{
+									id: myList.id,
+									method: "replace",
+									index: eventData.property,
+									value: eventData.value,
+								},
+								false,
+							);
+						};
+						break;
+					
+					case 'length':
+						
+						// Mitigate network loop bug
+						if (this.networkUpdateTracker[myList.id].last) {
+							this.networkUpdateTracker[myList.id].last = false;
+							return;
+						};
+						
+						// Transmit entry index/value pair over the network with push intent. Send and do not wait for the new list change to be sent.
+						for (const remotePeerId of Object.values(this.WebRTC.getPeers())) {
+							this.WebRTC.sendData(
+								remotePeerId,
+								"default",
+								"G_LIST",
+								{
+									id: myList.id,
+									method: "length",
+									value: eventData,
+								},
+								false,
+							);
+						};
+						break;
+				};
+			};
         };
 
         onVariableChange(myVar) {
-            console.log("Variable", myVar.name, "state has been updated to", myVar.value, "was updated by the network?", myVar.wasNetworkUpdated);
-
-            // Reset flag if variable was updated by the network
-            if (myVar.wasNetworkUpdated) myVar.wasNetworkUpdated = false;
+			if (this.varUpdateOriginTracker[myVar.id].current) {
+				this.networkUpdateTracker[myVar.id].current = false;
+				this.networkUpdateTracker[myVar.id].last = true;
+			} else {
+				
+				// Mitigate network loop bug
+				if (this.networkUpdateTracker[myVar.id].last) {
+					this.networkUpdateTracker[myVar.id].last = false;
+					return;
+				};
+				
+				for (const remotePeerId of Object.values(this.WebRTC.getPeers())) {
+					this.WebRTC.sendData(
+						remotePeerId,
+						"default",
+						"G_VAR",
+						{
+							id: myVar.id,
+							value: myVar.value,
+						},
+						false,
+					);
+				};
+			};
         };
 
         makeNetworkedVariable(myVar) {
             // Create proxy with existing variable contents
             const varProxy = this.createVariableProxy(myVar);
-
-            // Override the variable with the proxy
-            myVar = varProxy;
+			myVar = varProxy;
 
             // Bless the proxy to detect deletion
             Object.defineProperty(myVar, 'bless', {
@@ -1252,16 +1314,15 @@ SOFTWARE.
                 writable: true,
                 value: true
             });
-
-            // Add flag to tell the extension where the variable was last updated from (true: network, false: vm)
-            Object.defineProperty(myVar, 'wasNetworkUpdated', {
-                enumerable: false,
-                configurable: true,
-                writable: true,
-                value: false
-            });
             
-            // Add dummy logger
+			// Store update tracker
+			if (!this.networkUpdateTracker.hasOwnProperty(myVar.id)) {
+				this.networkUpdateTracker[myVar.id] = new Object();
+				this.networkUpdateTracker[myVar.id].current = false;
+				this.networkUpdateTracker[myVar.id].last = false;
+			}
+			
+            // Add event handler
             myVar.on(() => {
                 this.onVariableChange(myVar);
             });
@@ -1269,15 +1330,13 @@ SOFTWARE.
             // Store in tracker - Create map for target if it doesn't exist
             if (!this.blessVarTracker.includes(myVar.id)) {
                 this.blessVarTracker.push(myVar.id);
-            }
+            };
         };
 
         makeNetworkedList(myList) {
             // Create proxy with existing list contents
             const newProxy = this.createArrayProxy(myList);
-
-            // Override the list with the proxy
-            myList.value = newProxy;
+			myList.value = newProxy;
 
             // Bless the proxy to detect array overrwrites
             Object.defineProperty(myList.value, 'bless', {
@@ -1286,16 +1345,15 @@ SOFTWARE.
                 writable: true,
                 value: true,
             });
+			
+			// Store update tracker
+			if (!this.networkUpdateTracker.hasOwnProperty(myList.id)) {
+				this.networkUpdateTracker[myList.id] = new Object();
+				this.networkUpdateTracker[myList.id].current = false;
+				this.networkUpdateTracker[myList.id].last = false;
+			}
 
-            // Add flag to tell the extension where the list was last updated from (true: network, false: vm)
-            Object.defineProperty(myList, 'wasNetworkUpdated', {
-                enumerable: false,
-                configurable: true,
-                writable: true,
-                value: false
-            });
-
-            // Add dummy logger
+            // Add event handler
             myList.value.on((eventType, eventData) => {
                 this.onListChange(myList, eventType, eventData);
             })
@@ -1303,7 +1361,7 @@ SOFTWARE.
             // Store in tracker - Create map for target if it doesn't exist
             if (!this.blessListTracker.includes(myList.id)) {
                 this.blessListTracker.push(myList.id);
-            }
+            };
         };
     }
 
@@ -1966,33 +2024,48 @@ SOFTWARE.
                     case "G_LIST": // Global insecure list
 
                         // Find list by ID
-                        var myList;
+                        var myList = null;
                         for (const target of this.runtime.targets) {
-                            if (notUndefined(target.lookupVariableById(payload.id))) {
-                                myList = target.variables[payload.id];
+							myList = target.lookupVariableById(payload.id);
+                            if (myList != null) {
                                 break;
                             }
                         };
-
-                        // If not found, exit
-                        if (isUndefined(myList)) return;
-
-                        myList.wasNetworkUpdated = true;
+						
+						if (myList == null) {
+							return;
+						};
+						
+						// Prevent the VM from sending network updates
+						NetworkedScratchDataInstance.networkUpdateTracker[myList.id].current = true;
+						
+						// Perform operations on the list and manually trigger updates
                         switch (payload.method) {
                             case "set":
-                                myList.value[payload.index] = payload.value;
+								if (payload.value == "") {
+									delete myList.value[payload.index];
+								} else {
+									myList.value[payload.index] = payload.value;
+								}
                                 break;
-
-                            // BUG: this causes an infinite loop for some reason. Not sure why.
+							
                             case "reset":
                                 myList.value = payload.value;
                                 break;
                             
                             case "replace":
-                                myList.value[payload.index] = payload.value;
+                                if (payload.value == "") {
+									delete myList.value[payload.index];
+								} else {
+									myList.value[payload.index] = payload.value;
+								}
                                 break;
-                        }
-
+							
+							case "length":
+                                myList.value.length = payload.value;
+                                break;
+                        };
+						
                         break;
                     
                     case "P_MSG": // Private secure message
@@ -2947,10 +3020,6 @@ SOFTWARE.
         }
 
         make_private_networked_list({LIST, PEER}, util) {
-
-            // Temporarily disable this function due to a bug 
-            return;
-
             const target = util.target;
             const list = target.lookupVariableByNameAndType(LIST, "list");
 
@@ -2980,10 +3049,6 @@ SOFTWARE.
         }
 
         make_global_networked_list({LIST}, util) {
-
-            // Temporarily disable this function due to a bug 
-            return;
-
             const target = util.target;
             const list = target.lookupVariableByNameAndType(LIST, "list");
 
@@ -3013,8 +3078,7 @@ SOFTWARE.
             return self.newestPeerConnected;
         }
     };
-
-    
+	
     Scratch.vm.runtime.on('BEFORE_EXECUTE', () => {
 
         // Check if lists/variables need to be re-blessed or removed from the tracker

@@ -25,6 +25,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+// @ts-check
+
 (function (Scratch) {
 
     // DO NOT MODIFY THESE CONSTANTS, THEY ARE USED TO LOAD/SAVE THE EXTENSION'S SETTINGS! DOING SO WILL VERY LIKELY BREAK PROJECTS.
@@ -3015,6 +3017,10 @@ SOFTWARE.
         }
 
         make_private_networked_list({LIST, PEER}, util) {
+
+            // Temporarily disable function
+            return;
+
             const target = util.target;
             const list = target.lookupVariableByNameAndType(LIST, "list");
 
@@ -3037,7 +3043,7 @@ SOFTWARE.
             }
 
             // Create networked list
-            NetworkedScratchDataInstance.makeNetworkedList(util, list);
+            NetworkedScratchDataInstance.makeNetworkedList(list);
 
             // Backup settings
             backupSettings(this.runtime);

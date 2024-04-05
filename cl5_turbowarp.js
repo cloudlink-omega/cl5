@@ -45,7 +45,6 @@ SOFTWARE.
 
     // Helper function for checking if a value is not undefined
     let notUndefined = value => value !== undefined;
-    let isUndefined = value => value === undefined;
 
     // Helper function for making data vm-safe
     function makeValueSafeForScratch(data) {
@@ -216,7 +215,15 @@ SOFTWARE.
 
     // Define class to implement WebRTC client
     class OmegaRTC {
-        constructor() {
+        constructor(encryption, signaling) {
+
+            // Passthrough cryptography interface
+            this.encryption = encryption;
+
+            // Passthrough signaling interface
+            this.signaling = signaling;
+
+            // Define WebRTC configuration
             this.configuration = {
                 // Public STUN/TURN servers.
                 iceServers: [
@@ -228,18 +235,21 @@ SOFTWARE.
                     // { urls: 'turn:freeturn.net:3478', username: "free", credential: "free" }, // Unencrypted UDP/TCP TURN
                     // { urls: 'turns:freeturn.net:5349', username: "free", credential: "free" }, // Encrypted TLS TURN
                 ],
-                iceTransportPolicy: 'relay', // Set to 'relay' if you want TURN only.
+                iceTransportPolicy: 'relay', // 'all', // Set to 'relay' if you want TURN only.
             }
+
+            // Define variables
             this.peerConnections = new Map();
             this.voiceConnections = new Map();
             this.dataChannels = new Map();
+            this.iceCandidates = new Object(),
             this.messageHandlers = {
-                onIceCandidate: {},
-                onIceGatheringDone: {},
-                onChannelOpen: {},
-                onChannelMessage: {},
+                onIceCandidate: new Object(),
+                onIceGatheringDone: new Object(),
+                onChannelOpen: new Object(),
+                onChannelClose: new Object(),
+                onChannelMessage: new Object(),
             }
-            this.iceCandidates = {};
         }
 
         getPeers() {
@@ -316,6 +326,134 @@ SOFTWARE.
             } else {
                 console.error(`Peer voice connection not found for ${remoteUserId}`);
             }
+        }
+
+        isVoiceConnectionOpen(remoteUserId) {
+
+            // Check if peer exists
+            if (!this.doesPeerExist(remoteUserId)) {
+                return false;
+            }
+
+            // Get voice connection
+            const voiceConnection = this.voiceConnections.get(remoteUserId);
+
+            return (
+                (voiceConnection != null) && // Check if voice connection exists
+                (voiceConnection.getSenders().length > 0) && // Check if there are senders
+                (voiceConnection.getSenders()[0].track.readyState === "live") // Check if the audio track is active
+            );
+        }
+
+        isVoiceConnectionMuted(remoteUserId) {
+
+            // Check if peer exists and is connected
+            if (!this.isVoiceConnectionOpen(remoteUserId)) return false;
+
+            const voiceConnection = this.voiceConnections.get(remoteUserId);
+            return (
+                (voiceConnection.getSenders().length > 0) && // Check if there are senders
+                (!voiceConnection.getSenders()[0].track.enabled) // Check if the audio track is muted (enabled = false)
+            );
+        }
+
+        changeMicState(remoteUserId, state) {
+
+            // Check if peer exists and voice connection is active
+            if (!this.isVoiceConnectionOpen(remoteUserId)) return;
+
+            // Get voice connection
+            const voiceConnection = this.voiceConnections.get(remoteUserId);
+
+            // Get tracks
+            const senders = voiceConnection.getSenders();
+
+            // Loop through senders and enable/disable audio
+            for (const s of senders) {
+                const t = s.track;
+
+                if (t.kind !== "audio") {
+                    continue;
+                }
+
+                t.enabled = state;
+            }
+        }
+
+        async createVoiceConnection(remoteUserId) {
+
+            // Check if peer exists
+            if (!this.doesPeerExist(remoteUserId)) return;
+
+            // Check if voice channel already exists
+            if (this.isVoiceConnectionOpen(remoteUserId)) return;
+
+            // Get shared key
+            const sharedKey = await this.encryption.getSharedKey(remoteUserId);
+
+            // Extract username
+            const remoteUserName = this.peerConnections.get(remoteUserId).user;
+
+            // Create offer
+            const offer = await this.createVoiceOffer(remoteUserId, remoteUserName);
+
+            // Transmit offer
+            if (sharedKey) {
+                let {encryptedMessage, iv} = await this.encryption.encryptMessage(
+                    JSON.stringify(offer), 
+                    sharedKey
+                );
+
+                // Send encrypted offer
+                this.signaling.sendOffer(
+                    remoteUserId,
+                    {
+                        type: 1, // voice
+                        contents: [encryptedMessage, iv],
+                    },
+                    null,
+                )
+            
+            } else {
+
+                // Send plaintext offer
+                this.signaling.sendOffer(
+                    remoteUserId,
+                    {
+                        type: 1, // voice
+                        contents: offer,
+                    },
+                    null,
+                )
+            }
+        }
+
+        closeVoiceConnection(remoteUserId) {
+
+            // Check if peer exists
+            if (!this.doesPeerExist(remoteUserId)) return;
+        
+            // Get voice connection
+            const voiceConnection = this.voiceConnections.get(remoteUserId);
+
+            // Voice connection not created or connected
+            if (!voiceConnection) return;
+
+            // Get tracks
+            const senders = voiceConnection.getSenders();
+
+            // Loop through senders and close audio track
+            for (const s of senders) {
+                const t = s.track;
+                if (t.kind !== "audio") continue;
+                t.stop();
+            }
+
+            // Close voice connection
+            voiceConnection.close();
+
+            // Delete voice connection
+            this.closeVoiceStream(remoteUserId);
         }
         
         // Data channel functions
@@ -605,6 +743,34 @@ SOFTWARE.
             this.messageHandlers.onChannelMessage[remoteUserId] = callback;
         }
 
+        broadcastData(channelLabel, opcode, payload, wait) {
+            if (wait) {
+                let promises = new Array();
+                for (const remotePeerId of Object.values(this.getPeers())) {
+                    promises.push(
+                        OmegaRTCInstance.sendData(
+                            remotePeerId,
+                            channelLabel,
+                            opcode,
+                            payload,
+                            true,
+                        )
+                    );
+                }
+                return Promise.all(promises);
+            } else {
+                for (const remotePeerId of Object.values(this.getPeers())) {
+                    OmegaRTCInstance.sendData(
+                        remotePeerId,
+                        channelLabel,
+                        opcode,
+                        payload,
+                        false,
+                    );
+                }
+            }
+        }
+
         sendData(remoteUserId, channelLabel, opcode, payload, wait) {
             // Get peer.
             const peer = this.dataChannels.get(remoteUserId);
@@ -657,7 +823,7 @@ SOFTWARE.
             this.messageHandlers = {
                 onInitSuccess: null,
                 onConnect: null,
-                onClose: {},
+                onClose: new Object(),
                 offer: null,
                 answer: null,
                 keepalive: null,
@@ -667,23 +833,23 @@ SOFTWARE.
                 onNewHost: null,
                 onAnticipate: null,
                 onNewPeer: null,
-                onPeerGone: {},
-                onHostGone: {},
-                onIceCandidateReceived: {},
+                onPeerGone: new Object(),
+                onHostGone: new Object(),
+                onIceCandidateReceived: new Object(),
                 onOffer: null,
                 onAnswer: null,
-                listeners: {},
+                listeners: new Object(),
                 onDiscover: null,
                 onLobbyList: null,
                 onLobbyInfo: null,
             };
-            this.lobbyList = [];
-            this.lobbyInfo = {};
+            this.lobbyList = new Array();
+            this.lobbyInfo = new Object();
             this.state = {
-                user: "", // username
-                id: "", // ULID
-                game: "", // game name
-                developer: "", // developer name
+                user: new String(), // username
+                id: new String(), // ULID
+                game: new String(), // game name
+                developer: new String(), // developer name
                 mode: 0, // 0 - configuring, 1 - host, 2 - peer
                 authenticated: false,
             };
@@ -706,15 +872,15 @@ SOFTWARE.
             this.socket.onclose = (event) => {
 
                 // Clear values
-                this.state.id = "";
-                this.state.user = "";
-                this.state.developer = "";
-                this.state.game = "";
+                this.state.id = new String();
+                this.state.user = new String();
+                this.state.developer = new String();
+                this.state.game = new String();
                 this.state.mode = 0;
                 this.state.authenticated = false;
                 this.socket = null;
-                this.lobbyList = [];
-                this.lobbyInfo = {};
+                this.lobbyList = new Array();
+                this.lobbyInfo = new Object();
 
                 // Stop keepalive.
                 clearTimeout(this.keepalive);
@@ -740,7 +906,7 @@ SOFTWARE.
         }
 
         handleMessage(message) {
-            const { opcode, payload, origin, listener } = message;
+            const { opcode, payload, listener } = message;
             switch (opcode) {
                 case 'INIT_OK':
                     console.log('Signaling login successful.');
@@ -1181,19 +1347,15 @@ SOFTWARE.
 						};
 						
 						// Transmit the new list value over the network. Send and do not wait for the new list change to be sent.
-						for (const remotePeerId of Object.values(this.WebRTC.getPeers())) {
-							this.WebRTC.sendData(
-								remotePeerId,
-								"default",
-								"G_LIST",
-								{
-									id: myList.id,
-									method: "reset",
-									value: eventData,
-								},
-								false,
-							);
-						};
+                        this.WebRTC.broadcastData(
+                            "default",
+                            "G_LIST", {
+                                id: myList.id,
+                                method: "reset",
+                                value: eventData
+                            },
+                            false
+                        );
 
 						break;
 					
@@ -1206,20 +1368,17 @@ SOFTWARE.
 						};
 						
 						// Transmit entry index/value pair over the network with push intent. Send and do not wait for the new list change to be sent.
-						for (const remotePeerId of Object.values(this.WebRTC.getPeers())) {
-							this.WebRTC.sendData(
-								remotePeerId,
-								"default",
-								"G_LIST",
-								{
-									id: myList.id,
-									method: "set",
-									index: eventData.property,
-									value: eventData.value,
-								},
-								false,
-							);
-						};
+						this.WebRTC.broadcastData(
+                            "default",
+                            "G_LIST",
+                            {
+                                id: myList.id,
+                                method: "set",
+                                index: eventData.property,
+                                value: eventData.value,
+                            },
+                            false,
+                        );
 						
 						break;
 					
@@ -1232,20 +1391,18 @@ SOFTWARE.
 						};
 						
 						// Transmit entry index/value pair over the network with push intent. Send and do not wait for the new list change to be sent.
-						for (const remotePeerId of Object.values(this.WebRTC.getPeers())) {
-							this.WebRTC.sendData(
-								remotePeerId,
-								"default",
-								"G_LIST",
-								{
-									id: myList.id,
-									method: "replace",
-									index: eventData.property,
-									value: eventData.value,
-								},
-								false,
-							);
-						};
+						this.WebRTC.broadcastData(
+                            "default",
+                            "G_LIST",
+                            {
+                                id: myList.id,
+                                method: "replace",
+                                index: eventData.property,
+                                value: eventData.value,
+                            },
+                            false,
+                        );
+
 						break;
 					
 					case 'length':
@@ -1367,8 +1524,8 @@ SOFTWARE.
 
     // Initialize the extension classes
     const OmegaSignalingInstance = new OmegaSignaling();
-    const OmegaRTCInstance = new OmegaRTC();
     const OmegaEncryptionInstance = new OmegaEncryption();
+    const OmegaRTCInstance = new OmegaRTC(OmegaEncryptionInstance, OmegaSignalingInstance);
     const NetworkedScratchDataInstance = new NetworkedScratchData(OmegaRTCInstance);
 
     // Generate this peer's public / private key pair. Comment out to disable handshake offer/answer/ICE encryption (NOT RECOMMENDED)
@@ -2005,7 +2162,7 @@ SOFTWARE.
                         OmegaRTCInstance.peerConnections.get(remotePeerId).channelIdCounter = payload.id;
 
                         // Create channel
-                        console.log(OmegaRTCInstance.createChannel(remotePeerId, payload.name, payload.ordered, payload.id));
+                        OmegaRTCInstance.createChannel(remotePeerId, payload.name, payload.ordered, payload.id);
                         break;
                     
                     case "G_MSG": // Global insecure message
@@ -2116,8 +2273,8 @@ SOFTWARE.
 
                         // To be compliant with the protocol, we must close all peer connections.
                         Array.from(OmegaRTCInstance.peerConnections.keys()).forEach((peer) => {
+                            OmegaRTCInstance.closeVoiceConnection(peer);
                             OmegaRTCInstance.disconnectDataPeer(peer);
-                            OmegaRTCInstance.closeVoiceStream(peer);
                         })
 
                         // Fire on disconnect event
@@ -2560,9 +2717,8 @@ SOFTWARE.
                 // Send command
                 OmegaSignalingInstance.sendGetLobbyList();
 
-                OmegaSignalingInstance.onLobbyList(() => {
-                    resolve()
-                })
+                // Wait for response
+                OmegaSignalingInstance.onLobbyList(() => resolve());
             })
         }
 
@@ -2581,9 +2737,8 @@ SOFTWARE.
                 // Send command
                 OmegaSignalingInstance.sendGetLobbyInfo(LOBBY);
 
-                OmegaSignalingInstance.onLobbyInfo(() => {
-                    resolve()
-                })
+                // Wait for response
+                OmegaSignalingInstance.onLobbyInfo(() => resolve());
             })
         }
 
@@ -2637,13 +2792,9 @@ SOFTWARE.
                     null
                 );
 
-                OmegaSignalingInstance.onHostModeConfig(() => {
-                    resolve();
-                })
-
-                OmegaSignalingInstance.onModeConfigFailure(() => {
-                    reject();
-                })
+                // Wait for response
+                OmegaSignalingInstance.onHostModeConfig(() => resolve());
+                OmegaSignalingInstance.onModeConfigFailure(() => reject());
             })
         }
 
@@ -2656,6 +2807,7 @@ SOFTWARE.
                     return;
                 }
 
+                // Send command
                 OmegaSignalingInstance.peerMode(
                     LOBBY,
                     PASSWORD,
@@ -2663,13 +2815,9 @@ SOFTWARE.
                     null,
                 );
 
-                OmegaSignalingInstance.onPeerModeConfig(() => {
-                    resolve();
-                })
-
-                OmegaSignalingInstance.onModeConfigFailure(() => {
-                    reject();
-                })
+                // Wait for response
+                OmegaSignalingInstance.onPeerModeConfig(() => resolve());
+                OmegaSignalingInstance.onModeConfigFailure(() => reject());
             })
         }
 
@@ -2684,38 +2832,12 @@ SOFTWARE.
         }
 
         broadcast({DATA, CHANNEL, WAIT}) {
-            if (WAIT) {
-                let promises = [];
-
-                // Get all peers and prepare promises
-                for (const remotePeerId of Object.values(OmegaRTCInstance.getPeers())) {
-                    promises.push(
-                        OmegaRTCInstance.sendData(
-                            remotePeerId,
-                            CHANNEL,
-                            "G_MSG",
-                            DATA,
-                            true,
-                        )
-                    );
-                }
-            
-                // Send all messages
-                return Promise.all(promises);
-            }
-            else {
-
-                // Send and do not wait for messages to be sent
-                for (const remotePeerId of Object.values(OmegaRTCInstance.getPeers())) {
-                    OmegaRTCInstance.sendData(
-                        remotePeerId,
-                        CHANNEL,
-                        "G_MSG",
-                        DATA,
-                        false,
-                    );
-                }
-            }
+            OmegaRTCInstance.broadcastData(
+                CHANNEL,
+                "G_MSG",
+                DATA,
+                WAIT
+            );
         }
 
         disconnect_peer({PEER}) {
@@ -2723,14 +2845,11 @@ SOFTWARE.
         }
 
         leave() {
-            if (!OmegaSignalingInstance.socket) {
-                return;
-            }
+            if (!OmegaSignalingInstance.socket) return;
+
             return new Promise((resolve) => {
                 OmegaSignalingInstance.Disconnect();
-                OmegaSignalingInstance.onClose("manual", () => {
-                    resolve();
-                })
+                OmegaSignalingInstance.onClose("manual", () => resolve());
             })
         }
 
@@ -2752,7 +2871,6 @@ SOFTWARE.
         }
 
         get_peers() {
-            const self = this;
             return makeValueSafeForScratch(OmegaRTCInstance.getPeers());
         }
 
@@ -2785,11 +2903,17 @@ SOFTWARE.
         }
 
         new_dchan({CHANNEL, PEER, ORDERED}) {
-            const self = this;
+            if (!OmegaSignalingInstance.socket) return;
 
             // Check if peer exists
             if (!OmegaRTCInstance.doesPeerExist(PEER)) {
                 console.warn(`Peer ${PEER} not found.`);
+                return;
+            }
+
+            // Check if channel exists
+            if (OmegaRTCInstance.getPeerChannels(PEER).includes(CHANNEL)) {
+                console.warn(`Channel ${CHANNEL} with peer ${PEER} already open.`);
                 return;
             }
 
@@ -2811,156 +2935,27 @@ SOFTWARE.
             );
 
             // Create the channel on our end and wait for the peer to connect to it on their end
-            console.log(OmegaRTCInstance.createChannel(PEER, CHANNEL, (ORDERED == 1), channelIdCounter));
+            OmegaRTCInstance.createChannel(PEER, CHANNEL, (ORDERED == 1), channelIdCounter);
         }
 
         async new_vchan({PEER}) {
-            const self = this;
-
-            // Check if peer exists
-            if (!OmegaRTCInstance.doesPeerExist(PEER)) {
-                console.warn(`Peer ${PEER} not found.`);
-                return;
-            }
-
-            // Prevent a new channel from being created if the peer has a open voice channel already
-            if (self.is_peer_vchan_open(PEER)) return;
-            
-            const remoteUserId = PEER;
-            const sharedKey = await OmegaEncryptionInstance.getSharedKey(remoteUserId);
-            const remoteUserName = OmegaRTCInstance.peerConnections.get(remoteUserId).user;
-
-            // Create voice offer
-            let offer = await OmegaRTCInstance.createVoiceOffer(remoteUserId, remoteUserName);
-
-            // Encrypt offer (if public key is provided)
-            if (sharedKey) {
-                let {encryptedMessage, iv} = await OmegaEncryptionInstance.encryptMessage(JSON.stringify(offer), sharedKey);
-
-                // Send encrypted offer
-                OmegaSignalingInstance.sendOffer(
-                    remoteUserId,
-                    {
-                        type: 1, // voice
-                        contents: [encryptedMessage, iv],
-                    },
-                    null,
-                );
-
-            } else {
-                // Send plaintext offer
-                OmegaSignalingInstance.sendOffer(
-                    remoteUserId,
-                    {
-                        type: 1, // voice
-                        contents: offer,
-                    },
-                    null,
-                );
-
-            }
+            await OmegaRTCInstance.createVoiceConnection(PEER);
         }
 
         change_mic_state({MICSTATE, PEER}) {
-            // Check if peer exists
-            if (!OmegaRTCInstance.doesPeerExist(PEER)) {
-                return false;
-            }
-
-            // Get voice connection
-            const voiceConnection = OmegaRTCInstance.voiceConnections.get(PEER);
-
-            // Get tracks
-            const senders = voiceConnection.getSenders();
-
-            // Loop through senders and enable/disable audio
-            for (const s of senders) {
-                const t = s.track;
-
-                if (t.kind !== "audio") {
-                    continue;
-                }
-
-                t.enabled = (MICSTATE == 1); // 0 - mute, 1 - unmute
-            }
+            OmegaRTCInstance.changeMicState(PEER, (MICSTATE == 1));  // 0 - mute, 1 - unmute
         }
 
         is_peer_vchan_open({PEER}) {
-            // Check if peer exists
-            if (!OmegaRTCInstance.doesPeerExist(PEER)) {
-                return false;
-            }
-
-            // Get voice connection
-            const voiceConnection = OmegaRTCInstance.voiceConnections.get(PEER);
-
-            // Voice connection not created or connected
-            if (!voiceConnection) {
-                return false;
-            }
-
-            return (
-                (voiceConnection != null) && // Check if voice connection exists
-                (voiceConnection.getSenders().length > 0) && // Check if there are senders
-                (voiceConnection.getSenders()[0].track.readyState === "live") // Check if the audio track is open
-            );
+            return OmegaRTCInstance.isVoiceConnectionOpen(PEER);
         }
 
         get_mic_mute_state({PEER}) {
-            // Check if peer exists
-            if (!OmegaRTCInstance.doesPeerExist(PEER)) {
-                return false;
-            }
-
-            // Get voice connection
-            const voiceConnection = OmegaRTCInstance.voiceConnections.get(PEER);
-
-            // Voice connection not created or connected
-            if (!voiceConnection) {
-                return false;
-            }
-
-            return (
-                (voiceConnection != null) && // Check if voice connection exists
-                (voiceConnection.getSenders().length > 0) && // Check if there are senders
-                (!voiceConnection.getSenders()[0].track.enabled) // Check if the audio track is muted (enabled = false)
-            );
+            return OmegaRTCInstance.isVoiceConnectionMuted(PEER);
         }
 
         close_vchan({PEER}) {
-            // Check if peer exists
-            if (!OmegaRTCInstance.doesPeerExist(PEER)) {
-                console.warn(`Peer ${PEER} not found.`);
-                return;
-            }
-
-            // Get voice connection
-            const voiceConnection = OmegaRTCInstance.voiceConnections.get(PEER);
-
-            // Voice connection not created or connected
-            if (!voiceConnection) {
-                return false;
-            }
-
-            // Get tracks
-            const senders = voiceConnection.getSenders();
-
-            // Loop through senders and close audio track
-            for (const s of senders) {
-                const t = s.track;
-
-                if (t.kind !== "audio") {
-                    continue;
-                }
-
-                t.stop();
-            }
-
-            // Close voice connection
-            voiceConnection.close();
-
-            // Delete voice connection
-            OmegaRTCInstance.closeVoiceStream(PEER);
+            OmegaRTCInstance.closeVoiceConnection(PEER);
         }
         
         close_dchan({CHANNEL, PEER}) {
@@ -2994,14 +2989,14 @@ SOFTWARE.
 
         get_global_channel_data({CHANNEL}) {
             const self = this;
-            if (!self.globalDataStorage.has(CHANNEL)) return "";
+            if (!self.globalDataStorage.has(CHANNEL)) return new String();
             return makeValueSafeForScratch(self.globalDataStorage.get(CHANNEL));
         }
 
         get_private_channel_data({CHANNEL, PEER}) {
             const self = this;
-            if (!OmegaRTCInstance.doesPeerExist(PEER)) return "";
-            if (!OmegaRTCInstance.doesPeerChannelExist(PEER, CHANNEL)) return "";
+            if (!OmegaRTCInstance.doesPeerExist(PEER)) return new String();
+            if (!OmegaRTCInstance.doesPeerChannelExist(PEER, CHANNEL)) return new String();
             return makeValueSafeForScratch(
                 OmegaRTCInstance.dataChannels.get(PEER).get(CHANNEL).dataStorage.get("pmsg")
             );
@@ -3016,7 +3011,7 @@ SOFTWARE.
                 return "host";
             } else if (OmegaSignalingInstance.state.mode == 2) {
                 return "peer";
-            } else return "";
+            } else return new String();
         }
 
         make_private_networked_list({LIST, PEER}, util) {
@@ -3090,11 +3085,21 @@ SOFTWARE.
         // Scratch.vm.runtime.startHats('cl5_on_channel_broadcast_networked_list');
     });
 
-    Scratch.vm.runtime.on('PROJECT_LOADED', () => {
+    // Try to restore extension settings as soon as the project is loaded
+    Scratch.vm.runtime.on('PROJECT_LOADED', () => restoreSettings(Scratch.vm.runtime));
 
-        // Try to restore extension settings as soon as the project is loaded
-        restoreSettings(Scratch.vm.runtime);
-    
+    // If the project is stopped, disconnect all peers and disconnect from the server
+    Scratch.vm.runtime.on("PROJECT_STOP_ALL", () => {
+        if (!OmegaSignalingInstance.socket) return;
+        return new Promise((resolve) => {
+            Array.from(OmegaRTCInstance.peerConnections.keys()).forEach((peer) => {
+                OmegaRTCInstance.closeVoiceConnection(peer);
+                OmegaRTCInstance.disconnectDataPeer(peer);
+            });
+
+            OmegaSignalingInstance.Disconnect();
+            OmegaSignalingInstance.onClose("manual", () => resolve());
+        });
     });
 
     Scratch.extensions.register(new CloudLink5(Scratch));

@@ -649,11 +649,10 @@
         this.voiceConnections.delete(remoteUserId);
         delete this.iceCandidates[remoteUserId];
       }
-      createChannel(remoteUserId, label, ordered, id) {
+      createChannel(remoteUserId, label, ordered) {
         const peerConnection = this.peerConnections.get(remoteUserId);
         const dataChannel = peerConnection.createDataChannel(label, {
-          negotiated: true,
-          id,
+          negotiated: false,
           ordered,
           protocol: "clomega"
         });
@@ -1407,7 +1406,7 @@
         }
       }
     }
-    const OmegaSignalingInstance = new OmegaSignaling(Scratch2.runtime);
+    const OmegaSignalingInstance = new OmegaSignaling(Scratch.runtime);
     const OmegaEncryptionInstance = new OmegaEncryption();
     const OmegaRTCInstance = new OmegaRTC(
       OmegaEncryptionInstance,
@@ -1418,6 +1417,10 @@
     );
     OmegaEncryptionInstance.generateKeyPair();
     function backupSettings(runtime) {
+      if (!runtime) {
+        console.error("No runtime found!");
+        return;
+      }
       const stage = runtime.targets[0];
       let configId = null;
       let configFound = false;
@@ -1460,6 +1463,10 @@
       }
     }
     function restoreSettings(runtime) {
+      if (!runtime) {
+        console.error("No runtime found!");
+        return;
+      }
       const stage = runtime.targets[0];
       let configId = null;
       for (const id of Object.keys(stage.comments)) {
@@ -1488,9 +1495,9 @@
       newestPeerConnected;
       blockIconURI;
       menuIconURI;
-      constructor(vm, runtime) {
+      constructor(vm) {
         this.vm = vm;
-        this.runtime = runtime;
+        this.runtime = vm.runtime;
         this.hasMicPerms = false;
         this.globalDataStorage = /* @__PURE__ */ new Map();
         this.globalVariableStorage = /* @__PURE__ */ new Map();
@@ -1500,7 +1507,7 @@
         this.menuIconURI = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjI2IiBoZWlnaHQ9IjIyNiIgdmlld0JveD0iMCAwIDIyNiAyMjYiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMF8xXzEzKSI+CjxwYXRoIGQ9Ik0wIDExMi42NzdDMCA1MC40NDc0IDUwLjQ0NzQgMCAxMTIuNjc3IDBDMTc0LjkwNyAwIDIyNS4zNTUgNTAuNDQ3NCAyMjUuMzU1IDExMi42NzdDMjI1LjM1NSAxNzQuOTA3IDE3NC45MDcgMjI1LjM1NSAxMTIuNjc3IDIyNS4zNTVDNTAuNDQ3NCAyMjUuMzU1IDAgMTc0LjkwNyAwIDExMi42NzdaIiBmaWxsPSIjMEZCRDhDIi8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNMTU4LjUzNSA4My43NjEyQzE4MS43NzYgODMuNzYxMiAyMDAuNjE0IDEwMi42MDEgMjAwLjYxNCAxMjUuODRDMjAwLjYxNCAxNDkuMDggMTgxLjc3NiAxNjcuOTE5IDE1OC41MzUgMTY3LjkxOUg2Ni4yOTQxQzQzLjA1MzIgMTY3LjkxOSAyNC4yMTUyIDE0OS4wOCAyNC4yMTUyIDEyNS44NEMyNC4yMTUyIDEwMi42MDEgNDMuMDUzMiA4My43NjEyIDY2LjI5NDEgODMuNzYxMkg3MC40ODNDNzIuMjk0NSA2Mi4xOTA3IDkwLjM3NjUgNDUuMjQ4NCAxMTIuNDE0IDQ1LjI0ODRDMTM0LjQ1MiA0NS4yNDg0IDE1Mi41MzQgNjIuMTkwNyAxNTQuMzQ2IDgzLjc2MTJIMTU4LjUzNVoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMTEuNjM1IDE1MC41ODFDMTA3LjE1MyAxNTAuNTgxIDEwMy4wMDMgMTQ5LjcyMyA5OS4xODUgMTQ4LjAwOEM5NS4zNjcgMTQ2LjIzNyA5Mi4xNTc3IDE0My45MTMgODkuNTU3IDE0MS4wMzZMOTYuMTE0IDEzMi44MTlDOTguNDkzMyAxMzUuMDg4IDEwMC45NTYgMTM2LjgzMSAxMDMuNTAxIDEzOC4wNDhDMTA2LjEwMiAxMzkuMjY1IDEwOC43MDIgMTM5Ljg3NCAxMTEuMzAzIDEzOS44NzRDMTEzLjczOCAxMzkuODc0IDExNS44OTYgMTM5LjQ4NyAxMTcuNzc3IDEzOC43MTJDMTE5LjY1OCAxMzcuODgyIDEyMS4wOTcgMTM2Ljc0OCAxMjIuMDkzIDEzNS4zMDlDMTIzLjE0NCAxMzMuODE1IDEyMy42NyAxMzIuMDcyIDEyMy42NyAxMzAuMDhDMTIzLjY3IDEyOC4xOTkgMTIzLjE0NCAxMjYuNTM5IDEyMi4wOTMgMTI1LjFDMTIxLjA0MiAxMjMuNjYxIDExOS42MDMgMTIyLjUyNyAxMTcuNzc3IDEyMS42OTdDMTE1Ljk1MSAxMjAuODY3IDExMy45MDQgMTIwLjQ1MiAxMTEuNjM1IDEyMC40NTJDMTA5LjUzMiAxMjAuNDUyIDEwNy42NTEgMTIwLjY0NiAxMDUuOTkxIDEyMS4wMzNDMTA0LjMzMSAxMjEuNDIgMTAyLjgzNyAxMjEuODkxIDEwMS41MDkgMTIyLjQ0NEMxMDAuMTgxIDEyMi45NDIgOTguOTkxMyAxMjMuNDk1IDk3Ljk0IDEyNC4xMDRMOTIuMjk2IDExNi44ODNMOTUuODY1IDkxLjU2OEgxMzAuNzI1VjEwMi4yNzVIMTAyLjE3M0wxMDUuMTYxIDk4LjYyM0wxMDIuNDIyIDExNy4wNDlMOTguNTIxIDExNS4xNEM5OS40NjE3IDExNC4zNjUgMTAwLjc2MiAxMTMuNjQ2IDEwMi40MjIgMTEyLjk4MkMxMDQuMDgyIDExMi4zMTggMTA1LjkzNiAxMTEuNzY1IDEwNy45ODMgMTExLjMyMkMxMTAuMDMgMTEwLjg3OSAxMTIuMDUgMTEwLjY1OCAxMTQuMDQyIDExMC42NThDMTE3LjkxNSAxMTAuNjU4IDEyMS40NTcgMTExLjQ4OCAxMjQuNjY2IDExMy4xNDhDMTI3Ljg3NSAxMTQuNzUzIDEzMC40NDggMTE3LjAyMSAxMzIuMzg1IDExOS45NTRDMTM0LjMyMiAxMjIuODg3IDEzNS4yOSAxMjYuMzE3IDEzNS4yOSAxMzAuMjQ2QzEzNS4yOSAxMzQuMDY0IDEzNC4yMzkgMTM3LjUyMiAxMzIuMTM2IDE0MC42MjFDMTMwLjAzMyAxNDMuNjY0IDEyNy4xODQgMTQ2LjA5OSAxMjMuNTg3IDE0Ny45MjVDMTIwLjA0NiAxNDkuNjk2IDExNi4wNjIgMTUwLjU4MSAxMTEuNjM1IDE1MC41ODFaIiBmaWxsPSIjMEZCRDhDIi8+CjwvZz4KPGRlZnM+CjxjbGlwUGF0aCBpZD0iY2xpcDBfMV8xMyI+CjxyZWN0IHdpZHRoPSIyMjUuMzU1IiBoZWlnaHQ9IjIyNS4zNTUiIGZpbGw9IndoaXRlIi8+CjwvY2xpcFBhdGg+CjwvZGVmcz4KPC9zdmc+Cg==";
       }
       // Define blocks used in the extension
-      // @ts-expect-error Scratch.BlockType.EVENT has a weird catch-22 issue with isEdgeActivated. 
+      // @ts-expect-error Scratch.BlockType.EVENT has a weird catch-22 issue with isEdgeActivated.
       getInfo() {
         return {
           id: "cl5",
@@ -1514,12 +1521,12 @@
           blocks: [
             {
               opcode: "on_signalling_connect",
-              blockType: Scratch2.BlockType.EVENT,
+              blockType: Scratch2.BlockType.HAT,
               text: "When I am connected to signaling server"
             },
             {
               opcode: "on_signalling_disconnect",
-              blockType: Scratch2.BlockType.EVENT,
+              blockType: Scratch2.BlockType.HAT,
               text: "When I am disconnected from signaling server"
             },
             {
@@ -1724,7 +1731,7 @@
             },
             {
               opcode: "on_broadcast_message",
-              blockType: Scratch2.BlockType.EVENT,
+              blockType: Scratch2.BlockType.HAT,
               isEdgeActivated: false,
               text: "When I get a broadcast message in channel [CHANNEL]",
               arguments: {
@@ -2001,17 +2008,6 @@
           const payload = packet.payload;
           console.log(`[${remotePeerId}]`, packet);
           switch (opcode) {
-            case "NEWCHAN":
-              OmegaRTCInstance.peerConnections.get(
-                remotePeerId
-              ).channelIdCounter = payload.id;
-              OmegaRTCInstance.createChannel(
-                remotePeerId,
-                payload.name,
-                payload.ordered,
-                payload.id
-              );
-              break;
             case "G_MSG":
               if (!this.globalDataStorage.has(channel.label)) {
                 this.globalDataStorage.set(channel.label, /* @__PURE__ */ new Map());
@@ -2022,7 +2018,9 @@
               break;
             case "G_LIST":
               for (const target of this.runtime.targets) {
-                const myList = target.lookupVariableById(payload.id);
+                const myList = target.lookupVariableById(
+                  payload.id
+                );
                 if (myList == null)
                   continue;
                 NetworkedScratchDataInstance.networkUpdateTracker[myList.id].current = true;
@@ -2104,58 +2102,63 @@
                   pubKey
                 );
               }
-              OmegaRTCInstance.onChannelOpen(remoteUserId, async (channel) => {
-                if (channel == "default") {
-                  this.newestPeerConnected = remoteUserId;
-                  util.startHats("cl5_on_new_peer");
-                }
-              });
-            });
-            OmegaSignalingInstance.onDiscover(async (message) => {
-              const remoteUserName = message.payload.user;
-              const remoteUserId = message.payload.id;
-              const pubKey = message.payload.pubkey;
-              let sharedKey;
-              OmegaSignalingInstance.onPeerGone(remoteUserId, () => {
-                OmegaRTCInstance.disconnectDataPeer(remoteUserId);
-              });
-              if (pubKey) {
-                await OmegaEncryptionInstance.setSharedKeyFromPublicKey(
-                  remoteUserId,
-                  pubKey
-                );
-                sharedKey = OmegaEncryptionInstance.getSharedKey(remoteUserId);
-              }
-              const offer = await OmegaRTCInstance.createDataOffer(
+              OmegaRTCInstance.onChannelOpen(
                 remoteUserId,
-                remoteUserName
+                async (channel) => {
+                  if (channel == "default") {
+                    this.newestPeerConnected = remoteUserId;
+                    util.startHats("cl5_on_new_peer");
+                  }
+                }
               );
-              if (sharedKey) {
-                const { encryptedMessage, iv } = await OmegaEncryptionInstance.encryptMessage(
-                  JSON.stringify(offer),
-                  sharedKey
-                );
-                OmegaSignalingInstance.sendOffer(
-                  remoteUserId,
-                  {
-                    type: 0,
-                    // data
-                    contents: [encryptedMessage, iv]
-                  },
-                  null
-                );
-              } else {
-                OmegaSignalingInstance.sendOffer(
-                  remoteUserId,
-                  {
-                    type: 0,
-                    // data
-                    contents: offer
-                  },
-                  null
-                );
-              }
             });
+            OmegaSignalingInstance.onDiscover(
+              async (message) => {
+                const remoteUserName = message.payload.user;
+                const remoteUserId = message.payload.id;
+                const pubKey = message.payload.pubkey;
+                let sharedKey;
+                OmegaSignalingInstance.onPeerGone(remoteUserId, () => {
+                  OmegaRTCInstance.disconnectDataPeer(remoteUserId);
+                });
+                if (pubKey) {
+                  await OmegaEncryptionInstance.setSharedKeyFromPublicKey(
+                    remoteUserId,
+                    pubKey
+                  );
+                  sharedKey = OmegaEncryptionInstance.getSharedKey(remoteUserId);
+                }
+                const offer = await OmegaRTCInstance.createDataOffer(
+                  remoteUserId,
+                  remoteUserName
+                );
+                if (sharedKey) {
+                  const { encryptedMessage, iv } = await OmegaEncryptionInstance.encryptMessage(
+                    JSON.stringify(offer),
+                    sharedKey
+                  );
+                  OmegaSignalingInstance.sendOffer(
+                    remoteUserId,
+                    {
+                      type: 0,
+                      // data
+                      contents: [encryptedMessage, iv]
+                    },
+                    null
+                  );
+                } else {
+                  OmegaSignalingInstance.sendOffer(
+                    remoteUserId,
+                    {
+                      type: 0,
+                      // data
+                      contents: offer
+                    },
+                    null
+                  );
+                }
+              }
+            );
             OmegaSignalingInstance.onNewPeer(async (message) => {
               const remoteUserName = message.payload.user;
               const remoteUserId = message.payload.id;
@@ -2325,32 +2328,35 @@
                   );
                 }
               );
-              OmegaRTCInstance.onIceCandidate(remoteUserId, async (candidate) => {
-                if (sharedKey) {
-                  const { encryptedMessage, iv } = await OmegaEncryptionInstance.encryptMessage(
-                    JSON.stringify(candidate),
-                    sharedKey
-                  );
-                  OmegaSignalingInstance.sendIceCandidate(
-                    remoteUserId,
-                    {
-                      type,
-                      contents: [encryptedMessage, iv]
-                    },
-                    null
-                  );
-                } else {
-                  OmegaSignalingInstance.sendIceCandidate(
-                    remoteUserId,
-                    {
-                      type,
-                      contents: candidate
-                    },
-                    null
-                  );
+              OmegaRTCInstance.onIceCandidate(
+                remoteUserId,
+                async (candidate) => {
+                  if (sharedKey) {
+                    const { encryptedMessage, iv } = await OmegaEncryptionInstance.encryptMessage(
+                      JSON.stringify(candidate),
+                      sharedKey
+                    );
+                    OmegaSignalingInstance.sendIceCandidate(
+                      remoteUserId,
+                      {
+                        type,
+                        contents: [encryptedMessage, iv]
+                      },
+                      null
+                    );
+                  } else {
+                    OmegaSignalingInstance.sendIceCandidate(
+                      remoteUserId,
+                      {
+                        type,
+                        contents: candidate
+                      },
+                      null
+                    );
+                  }
+                  OmegaRTCInstance.removeIceCandidate(remoteUserId, candidate);
                 }
-                OmegaRTCInstance.removeIceCandidate(remoteUserId, candidate);
-              });
+              );
               OmegaRTCInstance.onIceGatheringDone(remoteUserId, () => {
                 OmegaRTCInstance.iceCandidates[remoteUserId].forEach(
                   async (candidate) => {
@@ -2629,24 +2635,11 @@
           console.warn(`Channel ${CHANNEL} with peer ${PEER} already open.`);
           return;
         }
-        let channelIdCounter = OmegaRTCInstance.peerConnections.get(PEER).channelIdCounter;
-        channelIdCounter += 1;
-        OmegaRTCInstance.sendData(
-          PEER,
-          "default",
-          "NEWCHAN",
-          {
-            name: CHANNEL,
-            ordered: ORDERED == 1,
-            id: channelIdCounter
-          },
-          true
-        );
         OmegaRTCInstance.createChannel(
           PEER,
           CHANNEL,
-          ORDERED == 1,
-          channelIdCounter
+          ORDERED == 1
+          // channelIdCounter
         );
       }
       async new_vchan({ PEER }) {
@@ -2699,9 +2692,13 @@
           OmegaRTCInstance.dataChannels.get(PEER).get(CHANNEL).dataStorage.get("pmsg")
         );
       }
-      // @ts-expect-error Function is not yet implemented
-      store_private_channel_in_variable({ CHANNEL, PEER, VAR }, util) {
-      }
+      /*
+      store_private_channel_in_variable(
+        { CHANNEL, PEER, VAR },
+        util: VM.BlockUtility
+      ): void {
+        // TODO
+      } */
       get_client_mode() {
         if (OmegaSignalingInstance.state.mode == 1) {
           return "host";
@@ -2754,7 +2751,7 @@
       });
     });
     if (Scratch2.vm?.runtime) {
-      Scratch2.extensions.register(new CloudLink5(Scratch2.vm, Scratch2.runtime));
+      Scratch2.extensions.register(new CloudLink5(Scratch2.vm));
     } else {
       throw new Error(
         "This extension is not supported in this Scratch Mod because it does not expose a `vm` property."

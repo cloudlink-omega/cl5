@@ -1,8 +1,9 @@
 /*
 CloudLink 5 Protocol extension
-Copyright © 2024 Mike Renaker "MikeDEV".
 
 MIT License
+
+Copyright © 2024 Mike Renaker "MikeDEV".
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -22,6 +23,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+
+// TODO: Audio panning support https://developer.mozilla.org/en-US/docs/Web/API/StereoPannerNode
 
 // Declare custom types
 class PeerConnection extends RTCPeerConnection {
@@ -45,9 +48,9 @@ interface NetworkedList extends VM.ListVariable {
   length: number | undefined
 }
 
-; (function (Scratch) {
+;(function (Scratch2) {
   // Extension cannot run sandboxed
-  if (!Scratch.extensions.unsandboxed) {
+  if (!Scratch2.extensions.unsandboxed) {
     throw new Error('Sandboxed mode is not supported in this extension.')
   }
 
@@ -71,7 +74,9 @@ interface NetworkedList extends VM.ListVariable {
   }
 
   // Helper function for making data vm-safe
-  function makeValueSafeForScratch(data: object | string | number | boolean): string {
+  function makeValueSafeForScratch(
+    data: object | string | number | boolean
+  ): string {
     try {
       // Check if data is a string
       if (typeof data === 'string') {
@@ -277,8 +282,12 @@ interface NetworkedList extends VM.ListVariable {
     iceCandidates: { [key: string]: Array<RTCIceCandidate> }
     messageHandlers: {
       [key: string]:
-      | { [key: string]: (...args: string[] | RTCIceCandidate[]) => Promise<void> | void }
-      | (Promise<void> | void)
+        | {
+            [key: string]: (
+              ...args: string[] | RTCIceCandidate[]
+            ) => Promise<void> | void
+          }
+        | (Promise<void> | void)
     }
 
     constructor(encryption: OmegaEncryption, signaling: OmegaSignaling) {
@@ -866,13 +875,11 @@ interface NetworkedList extends VM.ListVariable {
     createChannel(
       remoteUserId: string,
       label: string,
-      ordered: boolean,
-      id: number
+      ordered: boolean
     ): DataChannel {
       const peerConnection = this.peerConnections.get(remoteUserId)
       const dataChannel = peerConnection.createDataChannel(label, {
-        negotiated: true,
-        id: id,
+        negotiated: false,
         ordered: ordered,
         protocol: 'clomega'
       }) as DataChannel
@@ -1541,7 +1548,7 @@ interface NetworkedList extends VM.ListVariable {
       return proxy
     }
 
-    update(runtime) {
+    update(runtime: VM.Runtime) {
       // Check if any lists need to be reblessed or deleted
       this.blessListTracker.forEach(myListId => {
         // Check if the network origin tracker needs updating
@@ -1822,7 +1829,12 @@ interface NetworkedList extends VM.ListVariable {
   OmegaEncryptionInstance.generateKeyPair()
 
   // Helper function to backup settings
-  function backupSettings(runtime) {
+  function backupSettings(runtime: VM.Runtime) {
+    if (!runtime) {
+      console.error('No runtime found!')
+      return
+    }
+
     // Get the stage
     const stage = runtime.targets[0]
 
@@ -1864,7 +1876,12 @@ interface NetworkedList extends VM.ListVariable {
   }
 
   // Helper function to restore settings
-  function restoreSettings(runtime) {
+  function restoreSettings(runtime: VM.Runtime) {
+    if (!runtime) {
+      console.error('No runtime found!')
+      return
+    }
+
     // Get stage target
     const stage = runtime.targets[0]
 
@@ -1907,14 +1924,14 @@ interface NetworkedList extends VM.ListVariable {
     blockIconURI: string
     menuIconURI: string
 
-    constructor(vm: VM, runtime: VM.Runtime) {
+    constructor(vm: VM) {
       this.vm = vm // VM
-      this.runtime = runtime // Runtime
+      this.runtime = vm.runtime // Runtime
       this.hasMicPerms = false
       this.globalDataStorage = new Map()
       this.globalVariableStorage = new Map()
       this.globalListStorage = new Map()
-      this.newestPeerConnected = ""
+      this.newestPeerConnected = ''
 
       // Define icons
       this.blockIconURI =
@@ -1926,7 +1943,7 @@ interface NetworkedList extends VM.ListVariable {
     }
 
     // Define blocks used in the extension
-    // @ts-expect-error Scratch.BlockType.EVENT has a weird catch-22 issue with isEdgeActivated. 
+    // @ts-expect-error Scratch.BlockType.EVENT has a weird catch-22 issue with isEdgeActivated.
     getInfo() {
       return {
         id: 'cl5',
@@ -1940,114 +1957,114 @@ interface NetworkedList extends VM.ListVariable {
         blocks: [
           {
             opcode: 'on_signalling_connect',
-            blockType: Scratch.BlockType.EVENT,
+            blockType: Scratch2.BlockType.HAT,
             text: 'When I am connected to signaling server'
           },
           {
             opcode: 'on_signalling_disconnect',
-            blockType: Scratch.BlockType.EVENT,
+            blockType: Scratch2.BlockType.HAT,
             text: 'When I am disconnected from signaling server'
           },
           {
             opcode: 'initialize',
-            blockType: Scratch.BlockType.COMMAND,
+            blockType: Scratch2.BlockType.COMMAND,
             text: 'Connect to signaling server [SERVER]',
             arguments: {
               SERVER: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: ''
               }
             }
           },
           {
             opcode: 'leave',
-            blockType: Scratch.BlockType.COMMAND,
+            blockType: Scratch2.BlockType.COMMAND,
             text: 'Disconnect from signaling server'
           },
           {
             opcode: 'is_signalling_connected',
-            blockType: Scratch.BlockType.BOOLEAN,
+            blockType: Scratch2.BlockType.BOOLEAN,
             text: 'Connected to signaling server?'
           },
           {
             opcode: 'authenticate',
-            blockType: Scratch.BlockType.COMMAND,
+            blockType: Scratch2.BlockType.COMMAND,
             text: 'Authenticate with token [TOKEN]',
             arguments: {
               TOKEN: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: ''
               }
             }
           },
           {
             opcode: 'is_signaling_auth_success',
-            blockType: Scratch.BlockType.BOOLEAN,
+            blockType: Scratch2.BlockType.BOOLEAN,
             text: 'Authenticated successfully?'
           },
           {
             opcode: 'my_ID',
-            blockType: Scratch.BlockType.REPORTER,
+            blockType: Scratch2.BlockType.REPORTER,
             text: 'My Peer ID'
           },
           {
             opcode: 'my_Username',
-            blockType: Scratch.BlockType.REPORTER,
+            blockType: Scratch2.BlockType.REPORTER,
             text: 'My Username'
           },
           {
             opcode: 'get_peers',
-            blockType: Scratch.BlockType.REPORTER,
+            blockType: Scratch2.BlockType.REPORTER,
             text: 'Connected peers'
           },
           {
             opcode: 'get_peer_channels',
-            blockType: Scratch.BlockType.REPORTER,
+            blockType: Scratch2.BlockType.REPORTER,
             text: 'Peer [PEER] channels',
             arguments: {
               PEER: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'ID'
               }
             }
           },
           {
             opcode: 'is_peer_connected',
-            blockType: Scratch.BlockType.BOOLEAN,
+            blockType: Scratch2.BlockType.BOOLEAN,
             text: 'Connected to peer [PEER]?',
             arguments: {
               PEER: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'ID'
               }
             }
           },
           {
             opcode: 'disconnect_peer',
-            blockType: Scratch.BlockType.COMMAND,
+            blockType: Scratch2.BlockType.COMMAND,
             text: 'Close connection with peer [PEER]',
             arguments: {
               PEER: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'ID'
               }
             }
           },
           {
             opcode: 'new_dchan',
-            blockType: Scratch.BlockType.COMMAND,
+            blockType: Scratch2.BlockType.COMMAND,
             text: 'Open a new data channel named [CHANNEL] with peer [PEER] and prefer [ORDERED]',
             arguments: {
               CHANNEL: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'foobar'
               },
               PEER: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'ID'
               },
               ORDERED: {
-                type: Scratch.ArgumentType.NUMBER,
+                type: Scratch2.ArgumentType.NUMBER,
                 menu: 'channelConfig',
                 defaultValue: 1
               }
@@ -2055,64 +2072,64 @@ interface NetworkedList extends VM.ListVariable {
           },
           {
             opcode: 'close_dchan',
-            blockType: Scratch.BlockType.COMMAND,
+            blockType: Scratch2.BlockType.COMMAND,
             text: 'Close data channel named [CHANNEL] with peer [PEER]',
             arguments: {
               CHANNEL: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'foobar'
               },
               PEER: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'ID'
               }
             }
           },
           {
             opcode: 'lobby_list',
-            blockType: Scratch.BlockType.REPORTER,
+            blockType: Scratch2.BlockType.REPORTER,
             text: 'All public lobbies'
           },
           {
             opcode: 'query_lobbies',
-            blockType: Scratch.BlockType.COMMAND,
+            blockType: Scratch2.BlockType.COMMAND,
             text: 'Refresh public lobbies list'
           },
           {
             opcode: 'lobby_info',
-            blockType: Scratch.BlockType.REPORTER,
+            blockType: Scratch2.BlockType.REPORTER,
             text: 'Lobby info'
           },
           {
             opcode: 'query_lobby',
-            blockType: Scratch.BlockType.COMMAND,
+            blockType: Scratch2.BlockType.COMMAND,
             text: 'Get info about public lobby [LOBBY]',
             arguments: {
               LOBBY: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'DemoLobby'
               }
             }
           },
           {
             opcode: 'init_host_mode',
-            blockType: Scratch.BlockType.COMMAND,
+            blockType: Scratch2.BlockType.COMMAND,
             text: 'Host a lobby named [LOBBY], set the peer limit to [PEERS], set password to [PASSWORD], and [CLAIMCONFIG]',
             arguments: {
               LOBBY: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'DemoLobby'
               },
               PEERS: {
-                type: Scratch.ArgumentType.NUMBER,
+                type: Scratch2.ArgumentType.NUMBER,
                 defaultValue: 0
               },
               PASSWORD: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: ''
               },
               CLAIMCONFIG: {
-                type: Scratch.ArgumentType.NUMBER,
+                type: Scratch2.ArgumentType.NUMBER,
                 menu: 'lobbyConfigMenu',
                 defaultValue: 1
               }
@@ -2120,218 +2137,218 @@ interface NetworkedList extends VM.ListVariable {
           },
           {
             opcode: 'init_peer_mode',
-            blockType: Scratch.BlockType.COMMAND,
+            blockType: Scratch2.BlockType.COMMAND,
             text: 'Join lobby [LOBBY] with password [PASSWORD]',
             arguments: {
               LOBBY: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'DemoLobby'
               },
               PASSWORD: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: ''
               }
             }
           },
           {
             opcode: 'get_client_mode',
-            blockType: Scratch.BlockType.REPORTER,
+            blockType: Scratch2.BlockType.REPORTER,
             text: 'Am I a host or a peer?'
           },
           {
             opcode: 'on_new_peer',
-            blockType: Scratch.BlockType.EVENT,
+            blockType: Scratch2.BlockType.EVENT,
             text: 'When I get connected to a new peer'
           },
           {
             opcode: 'get_new_peer',
-            blockType: Scratch.BlockType.REPORTER,
+            blockType: Scratch2.BlockType.REPORTER,
             text: 'Newest peer connected'
           },
           {
             opcode: 'on_broadcast_message',
-            blockType: Scratch.BlockType.EVENT,
+            blockType: Scratch2.BlockType.HAT,
             isEdgeActivated: false,
             text: 'When I get a broadcast message in channel [CHANNEL]',
             arguments: {
               CHANNEL: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'default'
               }
             }
           },
           {
             opcode: 'get_global_channel_data',
-            blockType: Scratch.BlockType.REPORTER,
+            blockType: Scratch2.BlockType.REPORTER,
             text: 'Global channel [CHANNEL] data',
             arguments: {
               CHANNEL: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'default'
               }
             }
           },
           {
             opcode: 'broadcast',
-            blockType: Scratch.BlockType.COMMAND,
+            blockType: Scratch2.BlockType.COMMAND,
             text: 'Broadcast global data [DATA] to all peers using channel [CHANNEL] and wait for broadcast to finish sending? [WAIT]',
             arguments: {
               DATA: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'Hello'
               },
               CHANNEL: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'default'
               },
               WAIT: {
-                type: Scratch.ArgumentType.BOOLEAN,
+                type: Scratch2.ArgumentType.BOOLEAN,
                 defaultValue: false
               }
             }
           },
           {
             opcode: 'on_private_message',
-            blockType: Scratch.BlockType.HAT,
+            blockType: Scratch2.BlockType.HAT,
             isEdgeActivated: false,
             text: 'When I get a private message from peer [PEER] in channel [CHANNEL]',
             arguments: {
               CHANNEL: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'default'
               },
               PEER: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'ID'
               }
             }
           },
           {
             opcode: 'get_private_channel_data',
-            blockType: Scratch.BlockType.REPORTER,
+            blockType: Scratch2.BlockType.REPORTER,
             text: 'Private channel [CHANNEL] data from peer [PEER]',
             arguments: {
               CHANNEL: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'default'
               },
               PEER: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'ID'
               }
             }
           },
           {
             opcode: 'send',
-            blockType: Scratch.BlockType.COMMAND,
+            blockType: Scratch2.BlockType.COMMAND,
             text: 'Send private data [DATA] to peer [PEER] using channel [CHANNEL] and wait for message to finish sending? [WAIT]',
             arguments: {
               DATA: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'Hello'
               },
               PEER: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'ID'
               },
               CHANNEL: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'default'
               },
               WAIT: {
-                type: Scratch.ArgumentType.BOOLEAN,
+                type: Scratch2.ArgumentType.BOOLEAN,
                 defaultValue: false
               }
             }
           },
           {
             opcode: 'store_private_channel_in_variable',
-            blockType: Scratch.BlockType.COMMAND,
+            blockType: Scratch2.BlockType.COMMAND,
             text: "Store received private messages from peer [PEER]'s channel [CHANNEL] into variable [VAR]",
             arguments: {
               CHANNEL: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'default'
               },
               PEER: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'ID'
               },
               VAR: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'my variable'
               }
             }
           },
           {
             opcode: 'make_global_networked_list',
-            blockType: Scratch.BlockType.COMMAND,
+            blockType: Scratch2.BlockType.COMMAND,
             text: 'Make list [LIST] a global networked list',
             arguments: {
               LIST: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'my list'
               }
             }
           },
           {
             opcode: 'make_private_networked_list',
-            blockType: Scratch.BlockType.COMMAND,
+            blockType: Scratch2.BlockType.COMMAND,
             text: 'Make list [LIST] a private networked list with peer [PEER]',
             arguments: {
               LIST: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'my list'
               },
               PEER: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'ID'
               }
             }
           },
           {
             opcode: 'request_mic_perms',
-            blockType: Scratch.BlockType.COMMAND,
+            blockType: Scratch2.BlockType.COMMAND,
             text: 'Request microphone access'
           },
           {
             opcode: 'get_mic_perms',
-            blockType: Scratch.BlockType.BOOLEAN,
+            blockType: Scratch2.BlockType.BOOLEAN,
             text: 'Do I have microphone access?'
           },
           {
             opcode: 'is_peer_vchan_open',
-            blockType: Scratch.BlockType.BOOLEAN,
+            blockType: Scratch2.BlockType.BOOLEAN,
             text: 'Connected to voice chat with peer [PEER]?',
             arguments: {
               PEER: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'ID'
               }
             }
           },
           {
             opcode: 'get_mic_mute_state',
-            blockType: Scratch.BlockType.BOOLEAN,
+            blockType: Scratch2.BlockType.BOOLEAN,
             text: 'Is my microphone with peer [PEER] muted?',
             arguments: {
               PEER: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'ID'
               }
             }
           },
           {
             opcode: 'change_mic_state',
-            blockType: Scratch.BlockType.COMMAND,
+            blockType: Scratch2.BlockType.COMMAND,
             text: '[MICSTATE] my microphone with peer [PEER]',
             arguments: {
               PEER: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'ID'
               },
               MICSTATE: {
-                type: Scratch.ArgumentType.NUMBER,
+                type: Scratch2.ArgumentType.NUMBER,
                 menu: 'micStateMenu',
                 defaultValue: '0'
               }
@@ -2339,33 +2356,33 @@ interface NetworkedList extends VM.ListVariable {
           },
           {
             opcode: 'new_vchan',
-            blockType: Scratch.BlockType.COMMAND,
+            blockType: Scratch2.BlockType.COMMAND,
             text: 'Open a voice chat with peer [PEER]',
             arguments: {
               PEER: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'ID'
               }
             }
           },
           {
             opcode: 'close_vchan',
-            blockType: Scratch.BlockType.COMMAND,
+            blockType: Scratch2.BlockType.COMMAND,
             text: 'Close voice chat with peer [PEER]',
             arguments: {
               PEER: {
-                type: Scratch.ArgumentType.STRING,
+                type: Scratch2.ArgumentType.STRING,
                 defaultValue: 'ID'
               }
             }
           },
           {
             opcode: 'changeKeepalive',
-            blockType: Scratch.BlockType.COMMAND,
+            blockType: Scratch2.BlockType.COMMAND,
             text: 'Keep signaling connection alive? [KEEPALIVE]',
             arguments: {
               KEEPALIVE: {
-                type: Scratch.ArgumentType.BOOLEAN,
+                type: Scratch2.ArgumentType.BOOLEAN,
                 defaultValue: false
               }
             }
@@ -2423,7 +2440,11 @@ interface NetworkedList extends VM.ListVariable {
       backupSettings(this.runtime)
     }
 
-    async clOmegaProtocolMessageHandler(remotePeerId: string, channel: DataChannel, message: string) {
+    async clOmegaProtocolMessageHandler(
+      remotePeerId: string,
+      channel: DataChannel,
+      message: string
+    ) {
       // Declare variables
 
       let packet: { opcode: string; payload: any }
@@ -2440,7 +2461,7 @@ interface NetworkedList extends VM.ListVariable {
 
         // Process packet
         switch (opcode) {
-          case 'NEWCHAN': // Open a new data channel with custom settings
+          /* case 'NEWCHAN': // Open a new data channel with custom settings
             // Synchronize our channel ID counter
             OmegaRTCInstance.peerConnections.get(
               remotePeerId
@@ -2450,10 +2471,9 @@ interface NetworkedList extends VM.ListVariable {
             OmegaRTCInstance.createChannel(
               remotePeerId,
               payload.name,
-              payload.ordered,
-              payload.id
+              payload.ordered
             )
-            break
+            break */
 
           case 'G_MSG': // Global insecure message
             // If the channel doesn't have a global message map, make it
@@ -2470,11 +2490,15 @@ interface NetworkedList extends VM.ListVariable {
           case 'G_LIST': // Global insecure list
             // Find list by ID
             for (const target of this.runtime.targets) {
-              const myList = target.lookupVariableById(payload.id) as NetworkedList
+              const myList = target.lookupVariableById(
+                payload.id
+              ) as NetworkedList
               if (myList == null) continue
 
               // Prevent the VM from sending network updates
-              NetworkedScratchDataInstance.networkUpdateTracker[myList.id].current = true
+              NetworkedScratchDataInstance.networkUpdateTracker[
+                myList.id
+              ].current = true
 
               // Perform operations on the list and manually trigger updates
               switch (payload.method) {
@@ -2543,7 +2567,6 @@ interface NetworkedList extends VM.ListVariable {
             console.log('Connected to signaling server.')
 
             // Fire on connect event
-            console.log(this)
             this.vm.runtime.startHats('cl5_on_signalling_connect')
 
             // Return the promise.
@@ -2587,73 +2610,80 @@ interface NetworkedList extends VM.ListVariable {
               )
             }
 
-            OmegaRTCInstance.onChannelOpen(remoteUserId, async (channel: string) => {
-              if (channel == 'default') {
-                // Set peer ID
-                this.newestPeerConnected = remoteUserId
+            OmegaRTCInstance.onChannelOpen(
+              remoteUserId,
+              async (channel: string) => {
+                if (channel == 'default') {
+                  // Set peer ID
+                  this.newestPeerConnected = remoteUserId
 
-                // Fire on new peer event
-                util.startHats('cl5_on_new_peer')
+                  // Fire on new peer event
+                  util.startHats('cl5_on_new_peer')
+                }
               }
-            })
+            )
           })
 
           // Server advertises a new peer, we need to create a new peer connection
-          OmegaSignalingInstance.onDiscover(async (message: { payload: { user: any; id: any; pubkey: any } }) => {
-            const remoteUserName = message.payload.user
-            const remoteUserId = message.payload.id
-            const pubKey = message.payload.pubkey
-            let sharedKey: CryptoKey | null
+          OmegaSignalingInstance.onDiscover(
+            async (message: {
+              payload: { user: any; id: any; pubkey: any }
+            }) => {
+              const remoteUserName = message.payload.user
+              const remoteUserId = message.payload.id
+              const pubKey = message.payload.pubkey
+              let sharedKey: CryptoKey | null
 
-            // Create handler for PEER_GONE
-            OmegaSignalingInstance.onPeerGone(remoteUserId, () => {
-              OmegaRTCInstance.disconnectDataPeer(remoteUserId)
-            })
+              // Create handler for PEER_GONE
+              OmegaSignalingInstance.onPeerGone(remoteUserId, () => {
+                OmegaRTCInstance.disconnectDataPeer(remoteUserId)
+              })
 
-            // Setup shared secret from public key (if provided)
-            if (pubKey) {
-              await OmegaEncryptionInstance.setSharedKeyFromPublicKey(
-                remoteUserId,
-                pubKey
-              )
-              sharedKey = OmegaEncryptionInstance.getSharedKey(remoteUserId)
-            }
-
-            // Create offer
-            const offer = await OmegaRTCInstance.createDataOffer(
-              remoteUserId,
-              remoteUserName
-            )
-
-            // Encrypt offer (if public key is provided)
-            if (sharedKey) {
-              const { encryptedMessage, iv } =
-                await OmegaEncryptionInstance.encryptMessage(
-                  JSON.stringify(offer),
-                  sharedKey
+              // Setup shared secret from public key (if provided)
+              if (pubKey) {
+                await OmegaEncryptionInstance.setSharedKeyFromPublicKey(
+                  remoteUserId,
+                  pubKey
                 )
+                sharedKey = OmegaEncryptionInstance.getSharedKey(remoteUserId)
+              }
 
-              // Send encrypted offer
-              OmegaSignalingInstance.sendOffer(
+              // Create offer
+              const offer = await OmegaRTCInstance.createDataOffer(
                 remoteUserId,
-                {
-                  type: 0, // data
-                  contents: [encryptedMessage, iv]
-                },
-                null
+                remoteUserName
               )
-            } else {
-              // Send plaintext offer
-              OmegaSignalingInstance.sendOffer(
-                remoteUserId,
-                {
-                  type: 0, // data
-                  contents: offer
-                },
-                null
-              )
+
+              // Encrypt offer (if public key is provided)
+              if (sharedKey) {
+                const { encryptedMessage, iv } =
+                  await OmegaEncryptionInstance.encryptMessage(
+                    JSON.stringify(offer),
+                    sharedKey
+                  )
+
+                // Send encrypted offer
+                OmegaSignalingInstance.sendOffer(
+                  remoteUserId,
+                  {
+                    type: 0, // data
+                    contents: [encryptedMessage, iv]
+                  },
+                  null
+                )
+              } else {
+                // Send plaintext offer
+                OmegaSignalingInstance.sendOffer(
+                  remoteUserId,
+                  {
+                    type: 0, // data
+                    contents: offer
+                  },
+                  null
+                )
+              }
             }
-          })
+          )
 
           // Host receives a new peer, establish a new peer connection
           OmegaSignalingInstance.onNewPeer(async message => {
@@ -2875,37 +2905,40 @@ interface NetworkedList extends VM.ListVariable {
             )
 
             // Send Trickle ICE candidates
-            OmegaRTCInstance.onIceCandidate(remoteUserId, async (candidate: RTCIceCandidate) => {
-              // Encrypt ICE candidate if public key is provided, otherwise send it unencrypted
-              if (sharedKey) {
-                const { encryptedMessage, iv } =
-                  await OmegaEncryptionInstance.encryptMessage(
-                    JSON.stringify(candidate),
-                    sharedKey
+            OmegaRTCInstance.onIceCandidate(
+              remoteUserId,
+              async (candidate: RTCIceCandidate) => {
+                // Encrypt ICE candidate if public key is provided, otherwise send it unencrypted
+                if (sharedKey) {
+                  const { encryptedMessage, iv } =
+                    await OmegaEncryptionInstance.encryptMessage(
+                      JSON.stringify(candidate),
+                      sharedKey
+                    )
+
+                  OmegaSignalingInstance.sendIceCandidate(
+                    remoteUserId,
+                    {
+                      type: type,
+                      contents: [encryptedMessage, iv]
+                    },
+                    null
                   )
+                } else {
+                  OmegaSignalingInstance.sendIceCandidate(
+                    remoteUserId,
+                    {
+                      type: type,
+                      contents: candidate
+                    },
+                    null
+                  )
+                }
 
-                OmegaSignalingInstance.sendIceCandidate(
-                  remoteUserId,
-                  {
-                    type: type,
-                    contents: [encryptedMessage, iv]
-                  },
-                  null
-                )
-              } else {
-                OmegaSignalingInstance.sendIceCandidate(
-                  remoteUserId,
-                  {
-                    type: type,
-                    contents: candidate
-                  },
-                  null
-                )
+                // Remove the candidate from the queue so we don't accidentally resend it
+                OmegaRTCInstance.removeIceCandidate(remoteUserId, candidate)
               }
-
-              // Remove the candidate from the queue so we don't accidentally resend it
-              OmegaRTCInstance.removeIceCandidate(remoteUserId, candidate)
-            })
+            )
 
             // Send final ICE candidates when done gathering
             OmegaRTCInstance.onIceGatheringDone(remoteUserId, () => {
@@ -3257,6 +3290,7 @@ interface NetworkedList extends VM.ListVariable {
         return
       }
 
+      /*
       // Get the current peer channel ID incrementer value and add 1
       let channelIdCounter =
         OmegaRTCInstance.peerConnections.get(PEER).channelIdCounter
@@ -3274,13 +3308,14 @@ interface NetworkedList extends VM.ListVariable {
         },
         true
       )
+      */
 
       // Create the channel on our end and wait for the peer to connect to it on their end
       OmegaRTCInstance.createChannel(
         PEER,
         CHANNEL,
-        ORDERED == 1,
-        channelIdCounter
+        ORDERED == 1
+        // channelIdCounter
       )
     }
 
@@ -3333,14 +3368,13 @@ interface NetworkedList extends VM.ListVariable {
     }
 
     get_global_channel_data({ CHANNEL }): string {
-      if (!this.globalDataStorage.has(CHANNEL)) return ""
+      if (!this.globalDataStorage.has(CHANNEL)) return ''
       return makeValueSafeForScratch(this.globalDataStorage.get(CHANNEL))
     }
 
     get_private_channel_data({ CHANNEL, PEER }): string {
-      if (!OmegaRTCInstance.doesPeerExist(PEER)) return ""
-      if (!OmegaRTCInstance.doesPeerChannelExist(PEER, CHANNEL))
-        return ""
+      if (!OmegaRTCInstance.doesPeerExist(PEER)) return ''
+      if (!OmegaRTCInstance.doesPeerChannelExist(PEER, CHANNEL)) return ''
       return makeValueSafeForScratch(
         OmegaRTCInstance.dataChannels
           .get(PEER)
@@ -3349,17 +3383,20 @@ interface NetworkedList extends VM.ListVariable {
       )
     }
 
-    // @ts-expect-error Function is not yet implemented
-    store_private_channel_in_variable({ CHANNEL, PEER, VAR }, util: VM.BlockUtility): void {
+    /*
+    store_private_channel_in_variable(
+      { CHANNEL, PEER, VAR },
+      util: VM.BlockUtility
+    ): void {
       // TODO
-    }
+    } */
 
     get_client_mode(): string {
       if (OmegaSignalingInstance.state.mode == 1) {
         return 'host'
       } else if (OmegaSignalingInstance.state.mode == 2) {
         return 'peer'
-      } else return ""
+      } else return ''
     }
 
     // @ts-expect-error Function is temporarily disabled
@@ -3414,10 +3451,10 @@ interface NetworkedList extends VM.ListVariable {
     }
 
     // @ts-expect-error Function is not yet implemented
-    on_private_message({ PEER, CHANNEL }): void { }
+    on_private_message({ PEER, CHANNEL }): void {}
 
     // @ts-expect-error Function is not yet implemented
-    on_broadcast_message({ CHANNEL }): Promise<void> | void { }
+    on_broadcast_message({ CHANNEL }): Promise<void> | void {}
 
     get_new_peer(): string {
       return this.newestPeerConnected
@@ -3425,9 +3462,9 @@ interface NetworkedList extends VM.ListVariable {
   }
 
   // @ts-expect-error This scaffolding doesn't seem to be aware of the "BEFORE_EXECUTE" event.
-  Scratch.vm.runtime.on('BEFORE_EXECUTE', () => {
+  Scratch2.vm.runtime.on('BEFORE_EXECUTE', () => {
     // Check if lists/variables need to be re-blessed or removed from the tracker
-    NetworkedScratchDataInstance.update(Scratch.vm.runtime)
+    NetworkedScratchDataInstance.update(Scratch2.vm.runtime)
 
     // Scratch.vm.runtime.startHats('cl5_on_private_message');
     // Scratch.vm.runtime.startHats('cl5_on_broadcast_message');
@@ -3436,12 +3473,12 @@ interface NetworkedList extends VM.ListVariable {
   })
 
   // Try to restore extension settings as soon as the project is loaded
-  Scratch.vm.runtime.on('PROJECT_LOADED', () =>
-    restoreSettings(Scratch.vm.runtime)
+  Scratch2.vm.runtime.on('PROJECT_LOADED', () =>
+    restoreSettings(Scratch2.vm.runtime)
   )
 
   // If the project is stopped, disconnect all peers and disconnect from the server
-  Scratch.vm.runtime.on('PROJECT_STOP_ALL', (): void | Promise<void> => {
+  Scratch2.vm.runtime.on('PROJECT_STOP_ALL', (): void | Promise<void> => {
     if (!OmegaSignalingInstance.socket) return
     return new Promise(resolve => {
       Array.from(OmegaRTCInstance.peerConnections.keys()).forEach(peer => {
@@ -3455,14 +3492,14 @@ interface NetworkedList extends VM.ListVariable {
   })
 
   // The following snippet ensures compatibility with Turbowarp / Gandi IDE. If you want to write Turbowarp-only or Gandi-IDE code, please remove corresponding code
-  if (Scratch.vm?.runtime) {
+  if (Scratch2.vm?.runtime) {
     // For Turbowarp
 
-    // @ts-expect-error Scratch.BlockType.EVENT has a weird catch-22 issue with isEdgeActivated. 
-    Scratch.extensions.register(new CloudLink5(Scratch.vm, Scratch.runtime))
+    // @ts-expect-error Scratch.BlockType.EVENT has a weird catch-22 issue with isEdgeActivated.
+    Scratch2.extensions.register(new CloudLink5(Scratch2.vm))
   } else {
     throw new Error(
-      "This extension is not supported in this Scratch Mod because it does not expose a `vm` property."
+      'This extension is not supported in this Scratch Mod because it does not expose a `vm` property.'
     )
   }
 })(Scratch)

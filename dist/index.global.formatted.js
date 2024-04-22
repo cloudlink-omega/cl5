@@ -652,11 +652,10 @@
         this.voiceConnections.delete(remoteUserId);
         delete this.iceCandidates[remoteUserId];
       }
-      createChannel(remoteUserId, label, ordered, id) {
+      createChannel(remoteUserId, label, ordered) {
         const peerConnection = this.peerConnections.get(remoteUserId);
         const dataChannel = peerConnection.createDataChannel(label, {
-          negotiated: true,
-          id,
+          negotiated: false,
           ordered,
           protocol: "clomega",
         });
@@ -1423,7 +1422,7 @@
         }
       }
     }
-    const OmegaSignalingInstance = new OmegaSignaling(Scratch2.runtime);
+    const OmegaSignalingInstance = new OmegaSignaling(Scratch.runtime);
     const OmegaEncryptionInstance = new OmegaEncryption();
     const OmegaRTCInstance = new OmegaRTC(
       OmegaEncryptionInstance,
@@ -1434,6 +1433,10 @@
     );
     OmegaEncryptionInstance.generateKeyPair();
     function backupSettings(runtime) {
+      if (!runtime) {
+        console.error("No runtime found!");
+        return;
+      }
       const stage = runtime.targets[0];
       let configId = null;
       let configFound = false;
@@ -1476,6 +1479,10 @@
       }
     }
     function restoreSettings(runtime) {
+      if (!runtime) {
+        console.error("No runtime found!");
+        return;
+      }
       const stage = runtime.targets[0];
       let configId = null;
       for (const id of Object.keys(stage.comments)) {
@@ -1506,9 +1513,9 @@
       newestPeerConnected;
       blockIconURI;
       menuIconURI;
-      constructor(vm, runtime) {
+      constructor(vm) {
         this.vm = vm;
-        this.runtime = runtime;
+        this.runtime = vm.runtime;
         this.hasMicPerms = false;
         this.globalDataStorage = /* @__PURE__ */ new Map();
         this.globalVariableStorage = /* @__PURE__ */ new Map();
@@ -1534,12 +1541,12 @@
           blocks: [
             {
               opcode: "on_signalling_connect",
-              blockType: Scratch2.BlockType.EVENT,
+              blockType: Scratch2.BlockType.HAT,
               text: "When I am connected to signaling server",
             },
             {
               opcode: "on_signalling_disconnect",
-              blockType: Scratch2.BlockType.EVENT,
+              blockType: Scratch2.BlockType.HAT,
               text: "When I am disconnected from signaling server",
             },
             {
@@ -1744,7 +1751,7 @@
             },
             {
               opcode: "on_broadcast_message",
-              blockType: Scratch2.BlockType.EVENT,
+              blockType: Scratch2.BlockType.HAT,
               isEdgeActivated: false,
               text: "When I get a broadcast message in channel [CHANNEL]",
               arguments: {
@@ -2021,17 +2028,6 @@
           const payload = packet.payload;
           console.log(`[${remotePeerId}]`, packet);
           switch (opcode) {
-            case "NEWCHAN":
-              OmegaRTCInstance.peerConnections.get(
-                remotePeerId
-              ).channelIdCounter = payload.id;
-              OmegaRTCInstance.createChannel(
-                remotePeerId,
-                payload.name,
-                payload.ordered,
-                payload.id
-              );
-              break;
             case "G_MSG":
               if (!this.globalDataStorage.has(channel.label)) {
                 this.globalDataStorage.set(
@@ -2677,25 +2673,11 @@
           console.warn(`Channel ${CHANNEL} with peer ${PEER} already open.`);
           return;
         }
-        let channelIdCounter =
-          OmegaRTCInstance.peerConnections.get(PEER).channelIdCounter;
-        channelIdCounter += 1;
-        OmegaRTCInstance.sendData(
-          PEER,
-          "default",
-          "NEWCHAN",
-          {
-            name: CHANNEL,
-            ordered: ORDERED == 1,
-            id: channelIdCounter,
-          },
-          true
-        );
         OmegaRTCInstance.createChannel(
           PEER,
           CHANNEL,
-          ORDERED == 1,
-          channelIdCounter
+          ORDERED == 1
+          // channelIdCounter
         );
       }
       async new_vchan({ PEER }) {
@@ -2748,8 +2730,13 @@
             .dataStorage.get("pmsg")
         );
       }
-      // @ts-expect-error Function is not yet implemented
-      store_private_channel_in_variable({ CHANNEL, PEER, VAR }, util) {}
+      /*
+      store_private_channel_in_variable(
+        { CHANNEL, PEER, VAR },
+        util: VM.BlockUtility
+      ): void {
+        // TODO
+      } */
       get_client_mode() {
         if (OmegaSignalingInstance.state.mode == 1) {
           return "host";
@@ -2797,9 +2784,7 @@
       });
     });
     if (Scratch2.vm?.runtime) {
-      Scratch2.extensions.register(
-        new CloudLink5(Scratch2.vm, Scratch2.runtime)
-      );
+      Scratch2.extensions.register(new CloudLink5(Scratch2.vm));
     } else {
       throw new Error(
         "This extension is not supported in this Scratch Mod because it does not expose a `vm` property."

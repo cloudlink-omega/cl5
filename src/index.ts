@@ -22,11 +22,16 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+TODO 1: Refactor and simplify, this codebase is hell!
+TODO 2: Audio panning support https://developer.mozilla.org/en-US/docs/Web/API/StereoPannerNode
 */
 
-// TODO: Audio panning support https://developer.mozilla.org/en-US/docs/Web/API/StereoPannerNode
-
-// Declare custom types
+// CL5
+// ID: cl5
+// Description: CloudLink 5 protocol extension. Unleash your potential.
+// By: MikeDEV
+// License: MIT
 class PeerConnection extends RTCPeerConnection {
   user: string
   channelIdCounter: number

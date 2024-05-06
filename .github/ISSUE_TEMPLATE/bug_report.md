@@ -34,7 +34,5 @@ Anything between <!- - and - -> won't be shown when your issue is created.
 <!--- Provide a link to a live example, or an unambiguous set of steps to -->
 <!--- reproduce this bug. Include code to reproduce, if relevant -->
 
--->
-
 <!-- Replace the following line with "I have read the directions" -->
 I have NOT read the directions.

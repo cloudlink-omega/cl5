@@ -210,14 +210,14 @@
         this.configuration = {
           // Public STUN/TURN servers.
           iceServers: [
-            { urls: "stun:vpn.mikedev101.cc:3478" },
-            // STUN over TCP/UDP
+            { urls: "stun:vpn.mikedev101.cc:5349" },
+            // STUN over TLS with TCP/UDP
             {
-              urls: "turn:vpn.mikedev101.cc:3478",
+              urls: "turn:vpn.mikedev101.cc:5349",
               username: "free",
               credential: "free",
             },
-            // TURN over TCP/UDP
+            // TURN over TLS with TCP/UDP
             { urls: "stun:stun.l.google.com:19302" },
             // STUN over TCP/UDP
             { urls: "stun:freeturn.net:3478" },

@@ -606,7 +606,7 @@
                     if (conn.channels.has(label)) return;
 
                     // Acquire WebLock to prevent other peers from opening channels while we're creating this one
-                    const lock_id = "mikedevpeerjs_" + conn.peer + "_" + chan.label;
+                    const lock_id = "cl5_" + conn.peer + "_" + chan.label;
                     await navigator.locks.request(lock_id, { ifAvailable: true }, () => {
                         const newchan = conn.peerConnection.createDataChannel(label, {
                             ordered: ordered,
@@ -765,7 +765,7 @@
             if (!this.dataConnections.has(ID)) return;
             if (this.dataConnections.get(ID).channels.has(CHANNEL)) return;
 
-            const lock_id = "mikedevpeerjs_" + ID + "_" + CHANNEL;
+            const lock_id = "cl5_" + ID + "_" + CHANNEL;
             await navigator.locks.request(lock_id, { ifAvailable: true }, () => {
                 // Create a new channel with PeerJS
                 const conn = this.dataConnections.get(ID);
@@ -908,7 +908,7 @@
                 if (!this.hasMicPerms) return;
             }
             if (this.voiceConnections.has(ID)) return;
-            const lock_id = "mikedevpeerjs_" + ID + "_call";
+            const lock_id = "cl5_" + ID + "_call";
             await navigator.locks.request(
                 lock_id,
                 { ifAvailable: true },
@@ -932,7 +932,7 @@
             }
             if (!this.ringingPeers.has(ID)) return;
             const call = this.ringingPeers.get(ID);
-            const lock_id = "mikedevpeerjs_" + ID + "_call";
+            const lock_id = "cl5_" + ID + "_call";
             await navigator.locks.request(
                 lock_id,
                 { ifAvailable: true },

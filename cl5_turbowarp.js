@@ -1226,18 +1226,18 @@
             this.initialized = false;
             this.initerror = false;
             this.callbacks = {
-                onopen: function() {},
-                oninit: function() {},
-                onclose: function() {},
-                onerror: function() {},
-                onhostconfig: function() {},
-                onpeerconfig: function() {},
+                onopen: null,
+                oninit: null,
+                onclose: null,
+                onerror: null,
+                onhostconfig: null,
+                onpeerconfig: null,
             };
         }
 
         unbind(name) {
             if (!this.callbacks[name]) return;
-            this.callbacks[name] = function() {};
+            this.callbacks[name] = null;
         }
 
         bind(name, fn) {
@@ -1333,6 +1333,24 @@
                     // TODO: return event for becoming a lobby member
                     this.callback("onpeerconfig");
                     break;
+                case "DISCOVER":
+                    console.log(message);
+                    break;
+                case "ANTICIPATE":
+                    console.log(message);
+                    break;
+                case "TRANSITION":
+                    // TODO: perform necessary operations needed to change modes
+                    this.conn.send(JSON.stringify({
+                        opcode: "TRANSITION_ACK"
+                    }))
+                    break;
+                
+                case "NEW_PEER":
+                    break;
+                case "NEW_HOST":
+                    break;
+
                 // Do nothing as these opcodes are deprecated
                 case "DIAL":
                 case "ACCEPT":
@@ -2093,11 +2111,11 @@
         }
 
         my_ID() {
-            // ...
+            return this.socket.id;
         }
 
         my_Username() {
-            // ...
+            return this.socket.user;
         }
 
         get_peers() {
@@ -2117,12 +2135,12 @@
             return this.net.hasMicPerms;
         }
 
-        new_dchan({ CHANNEL, PEER, ORDERED }) {
-            // ...
+        async new_dchan({ CHANNEL, PEER, ORDERED }) {
+            await this.net.openNewPeerChannel(PEER, CHANNEL, ORDERED);
         }
 
         async new_vchan({ PEER }) {
-            // ...
+            await this.net.callPeer(PEER);
         }
 
         change_mic_state({ MICSTATE, PEER }) {
@@ -2150,7 +2168,7 @@
         }
 
         is_peer_connected({ PEER }) {
-            // ...
+            return this.net.isOtherPeerConnected(PEER);
         }
 
         get_global_channel_data({ CHANNEL }) {
@@ -2158,7 +2176,7 @@
         }
 
         get_private_channel_data({ CHANNEL, PEER }) {
-            // ...
+            return this.net.readMessageFromPeer(PEER, CHANNEL);
         }
 
         store_private_channel_in_variable({ CHANNEL, PEER, VAR }, util) {

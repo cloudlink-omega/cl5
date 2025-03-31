@@ -1374,7 +1374,7 @@
 
             // Metadata
             this.metadata = {
-                client_type: "omega",
+                client_type: "omega-peerjs",
                 client_version: "1.0.0",
                 protocol_version: "1",
                 signaling_version: "1.2",

@@ -863,6 +863,14 @@
             return conn.channels.has(CHANNEL);
         }
 
+        closePeerChannel(ID, CHANNEL) {
+            if (!this.doesPeerHaveChannel(ID, CHANNEL)) return;
+
+            const chan = this.dataConnections.get(ID).channels.get(CHANNEL).chan;
+
+            chan.close();
+        }
+
         readMessageFromPeer(ID, CHANNEL) {
             if (!this.peer) return "";
             const conn = this.dataConnections.get(ID);
@@ -893,6 +901,22 @@
                         this.hasMicPerms = false;
                     });
             }
+        }
+
+        isMicMuted(ID) {
+            if (!this.voiceConnections.has(ID)) return;
+            const voiceConnection = this.voiceConnections.get(ID);
+            return (
+                (voiceConnection.getSenders().length > 0) && // Check if there are senders
+                (!voiceConnection.getSenders()[0].track.enabled) // Check if the audio track is muted (enabled = false)
+            );
+        }
+
+        toggleMic(ID, STATE) {
+            if (!this.voiceConnections.has(ID)) return;
+            const voiceConnection = this.voiceConnections.get(ID);
+
+            voiceConnection.getSenders()[0].track.enabled = STATE;
         }
 
         async callPeer(ID) {
@@ -1426,6 +1450,8 @@
             this.lan = new LAN(this.encryption);
             this.net = new PeerJS_Scratch(this.encryption);
             this.socket = new Signaling(this.encryption, this.net);
+
+            this.gmsg_store = new Map();
         }
 
         // Define blocks used in the extension
@@ -2124,6 +2150,8 @@
 
                     this.net.bind("gmsg", (peer, channel, payload) => {
                         console.log("G_MSG", peer, channel, payload);
+
+                        this.gmsg_store[channel] = payload;
                     })
 
                     this.net.bind("pmsg", (peer, channel, payload) => {
@@ -2296,23 +2324,24 @@
         }
 
         change_mic_state({ MICSTATE, PEER }) {
-            // ...
+            this.net.toggleMic(PEER, Scratch.Cast.toBoolean(MICSTATE));
         }
 
         is_peer_vchan_open({ PEER }) {
-            // ...
+            return this.net.voiceConnections.has(PEER);
         }
 
         get_mic_mute_state({ PEER }) {
-            // ...
+            return this.net.isMicMuted(PEER);
         }
 
         close_vchan({ PEER }) {
-            // ...
+            this.net.hangupPeerCall(PEER);
         }
 
         close_dchan({ CHANNEL, PEER }) {
-            // ...
+            if (CHANNEL == "default") return;
+            this.net.closePeerChannel(PEER, CHANNEL);
         }
 
         get_peer_channels({ PEER }) {
@@ -2326,11 +2355,12 @@
         }
 
         get_global_channel_data({ CHANNEL }) {
-            // ...
+            if (!this.gmsg_store.has(CHANNEL)) return "";
+            return Scratch.Cast.toString(this.gmsg_store[CHANNEL]);
         }
 
         get_private_channel_data({ CHANNEL, PEER }) {
-            return this.net.readMessageFromPeer(PEER, CHANNEL);
+            return Scratch.Cast.toString(this.net.readMessageFromPeer(PEER, CHANNEL));
         }
 
         store_private_channel_in_variable({ CHANNEL, PEER, VAR }, util) {
@@ -2351,20 +2381,16 @@
             const handler = this.networkedvariables.makeNetworkedVariable(myVar);
             if (!handler) return;
 
-            handler.on = (data) => {
+            handler.on = async(data) => {
                 console.log(VAR, data);
-                /*for (const remotePeerId of Object.values(this.WebRTC.getPeers())) {
-                             this.WebRTC.sendData(
-                                remotePeerId,
-                                "default",
-                                "G_VAR",
-                                {
-                                    id: myVar.id,
-                                    value: myVar.value,
-                                },
-                                false,
-                            ); 
-                        };*/
+
+                this.net.sendMessageToPeer({
+                    opcode: "P_VAR",
+                    payload: {
+                        id: myVar.id,
+                        value: myVar.value,
+                    }
+                }, PEER, CHANNEL);
             };
 
             // ...
@@ -2463,8 +2489,22 @@
             const handlers = this.networkedvariables.makeNetworkedList(myList);
             if (!handlers) return;
 
-            handlers.onreset = (data) => {
+            handlers.onreset = async(data) => {
                 console.log(LIST, data);
+
+                await this.broadcast({
+                    DATA: {
+                        opcode: "G_LIST",
+                        payload: {
+                            id: myList.id,
+                            method: "reset",
+                            value: eventData
+                        }
+                    },
+                    CHANNEL: "default",
+                    WAIT: true,
+                });
+
                 // Transmit the new list value over the network. Send and do not wait for the new list change to be sent.
                 /* this.WebRTC.broadcastData(
                             "default",
@@ -2477,8 +2517,23 @@
                         ); */
             };
 
-            handlers.onset = (data) => {
+            handlers.onset = async(data) => {
                 console.log(LIST, data);
+
+                await this.broadcast({
+                    DATA: {
+                        opcode: "G_LIST",
+                        payload: {
+                            id: myList.id,
+                            method: "set",
+                            index: eventData.property,
+                            value: eventData.value,
+                        }
+                    },
+                    CHANNEL: "default",
+                    WAIT: true,
+                });
+
                 // Transmit entry index/value pair over the network with push intent. Send and do not wait for the new list change to be sent.
                 /* this.WebRTC.broadcastData(
                             "default",
@@ -2493,8 +2548,23 @@
                         ); */
             };
 
-            handlers.onreplace = (data) => {
+            handlers.onreplace = async(data) => {
                 console.log(LIST, data);
+
+                await this.broadcast({
+                    DATA: {
+                        opcode: "G_LIST",
+                        payload: {
+                            id: myList.id,
+                            method: "replace",
+                            index: eventData.property,
+                            value: eventData.value,
+                        }
+                    },
+                    CHANNEL: "default",
+                    WAIT: true,
+                });
+
                 // Transmit entry index/value pair over the network with push intent. Send and do not wait for the new list change to be sent.
                 /* this.WebRTC.broadcastData(
                             "default",
@@ -2509,8 +2579,22 @@
                         ); */
             };
 
-            handlers.onlength = (data) => {
+            handlers.onlength = async(data) => {
                 console.log(LIST, data);
+
+                await this.broadcast({
+                    DATA: {
+                        opcode: "G_LIST",
+                        payload: {
+                            id: myList.id,
+                            method: "length",
+                            value: eventData,
+                        }
+                    },
+                    CHANNEL: "default",
+                    WAIT: true,
+                });
+
                 // Transmit entry index/value pair over the network with push intent. Send and do not wait for the new list change to be sent.
                 /* for (const remotePeerId of Object.values(this.WebRTC.getPeers())) {
                                 this.WebRTC.sendData(

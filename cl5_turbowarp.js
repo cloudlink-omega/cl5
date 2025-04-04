@@ -63,16 +63,6 @@
     }
 
     /*
-          https://github.com/skeeto/ulid-js
-  
-          The Unlicense License
-      */
-
-    /* eslint-disable */
-    // prettier-ignore
-    function ULID() { let $ = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "G", "H", "J", "K", "M", "N", "P", "Q", "R", "S", "T", "V", "W", "X", "Y", "Z"], e = -1, f = new Uint8Array(16), _ = new DataView(f.buffer, 0, 6), n = new Uint8Array(f.buffer, 6, 10), t = Array(26); return function () { let r = Date.now(); if (r === e) for (let o = 9; o >= 0 && !(n[o]++ < 255); o--); else e = r, _.setUint16(0, r / 4294967296 | 0), _.setUint32(2, 0 | r), window.crypto.getRandomValues(n); return function e(f) { t[0] = $[f[0] >> 5], t[1] = $[f[0] >> 0 & 31]; for (let _ = 0; _ < 3; _++)t[8 * _ + 2] = $[f[5 * _ + 1] >> 3], t[8 * _ + 3] = $[(f[5 * _ + 1] << 2 | f[5 * _ + 2] >> 6) & 31], t[8 * _ + 4] = $[f[5 * _ + 2] >> 1 & 31], t[8 * _ + 5] = $[(f[5 * _ + 2] << 4 | f[5 * _ + 3] >> 4) & 31], t[8 * _ + 6] = $[(f[5 * _ + 3] << 1 | f[5 * _ + 4] >> 7) & 31], t[8 * _ + 7] = $[f[5 * _ + 4] >> 2 & 31], t[8 * _ + 8] = $[(f[5 * _ + 4] << 3 | f[5 * _ + 5] >> 5) & 31], t[8 * _ + 9] = $[f[5 * _ + 5] >> 0 & 31]; return t.join("") }(f) } }
-
-    /*
           https://github.com/peers/peerjs
           
           (source: https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js)
@@ -546,6 +536,11 @@
             }
         }
 
+        bind(name, callback) { 
+            if (this.callbacks[name]) return; 
+            this.callbacks[name] = callback; 
+        }
+
         callback(name, ...args) {
             if (this.callbacks[name]) this.callbacks[name](...args);
         }
@@ -692,7 +687,7 @@
                         },
                     ],
                 },
-                debug: this.verboseLogs ? 3 : 2,
+                debug: this.verboseLogs ? 3 : 1,
             });
 
             this.peer.on("open", (id) => {
@@ -1219,8 +1214,10 @@
     }
 
     class Signaling {
-        constructor(encryption) {
+        constructor(encryption, net) {
             this.encryption = encryption;
+            this.enable_keepalive = true;
+            this.net = net;
             this.id, this.user, this.game, this.developer = "";
             this.conn = null;
             this.initialized = false;
@@ -1282,11 +1279,19 @@
             if (this.isConnected()) return;
             this.initialized = false;
             this.conn = new WebSocket(server);
-            this.conn.onopen = () => this.callback("onopen");
+            this.conn.onopen = () => {
+                this.callback("onopen"); 
+                if (this.enable_keepalive) this.conn.send(JSON.stringify({ opcode: "KEEPALIVE" }));
+            }
             this.conn.onclose = (event) => this.callback("onclose", event.wasClean, event.code, event.reason);
             this.conn.onerror = (event) => this.callback("onerror", event);
             this.conn.onmessage = async(event) => this.handler(JSON.parse(event.data));
-            return this.callbacks;
+            return [this.callbacks, this.conn];
+        }
+
+        send(payload) {
+            if (!this.isConnected()) return;
+            this.conn.send(JSON.stringify(payload));
         }
 
         async handler(message) {
@@ -1295,8 +1300,14 @@
                 case "WARNING":
                     console.warn(payload);
                     break;
+                
+                case "META":
+                    console.log(payload);
+
                 case "KEEPALIVE":
+                    setTimeout(() => { this.send({ opcode: "KEEPALIVE" }) }, 1000);
                     break;
+
                 case "TOKEN_INVALID":
                     console.log("Invalid session token");
                     this.initerror = true;
@@ -1322,6 +1333,7 @@
                     this.game = payload.game;
                     this.developer = payload.developer;
                     this.initialized = true;
+                    this.net.createPeer(payload.id);
                     console.log("Session successfully authenticated.");
                     this.callback("oninit");
                     break;
@@ -1334,21 +1346,48 @@
                     this.callback("onpeerconfig");
                     break;
                 case "DISCOVER":
-                    console.log(message);
+
+                    // Create a shared key
+                    if (payload.pubkey) await this.encryption.deriveSharedKey(payload.pubkey, payload.id);
                     break;
+
                 case "ANTICIPATE":
-                    console.log(message);
+
+                     // Create a shared key
+                    if (payload.pubkey) await this.encryption.deriveSharedKey(payload.pubkey, payload.id);
                     break;
+                    
                 case "TRANSITION":
                     // TODO: perform necessary operations needed to change modes
+                    switch (payload.mode) {
+                        case "host":
+                            console.log("Now running as a host");
+                            break;
+                        case "peer":
+                            console.log("Now running as a peer");
+                            break;
+                        default:
+                            console.warn("Unknown transition mode: " + payload.mode);
+                            break;
+                    }
+
                     this.conn.send(JSON.stringify({
                         opcode: "TRANSITION_ACK"
                     }))
                     break;
                 
                 case "NEW_PEER":
+                    // Create a shared key
+                    if (payload.pubkey) await this.encryption.deriveSharedKey(payload.pubkey, payload.id);
+
+                    // Establish a connection
+                    this.net.connectToPeer(payload.id);
                     break;
+
                 case "NEW_HOST":
+
+                    // Create a shared key
+                    if (payload.pubkey) await this.encryption.deriveSharedKey(payload.pubkey, payload.id);
                     break;
 
                 // Do nothing as these opcodes are deprecated
@@ -1370,8 +1409,6 @@
     // And now for the actual extension itself
     class CloudLink5 {
         constructor() {
-            this.ulidGenerator = new ULID();
-
             // Metadata
             this.metadata = {
                 client_type: "omega-peerjs",
@@ -1388,7 +1425,7 @@
             this.networkedvariables = new NetworkedVariables();
             this.lan = new LAN(this.encryption);
             this.net = new PeerJS_Scratch(this.encryption);
-            this.socket = new Signaling(this.encryption);
+            this.socket = new Signaling(this.encryption, this.net);
         }
 
         // Define blocks used in the extension
@@ -1404,13 +1441,6 @@
                 color3: "#0A7255",
                 blocks: [
                     {
-                        opcode: "newULID",
-                        blockType: Scratch.BlockType.REPORTER,
-                        disableMonitor: true,
-                        text: Scratch.translate("generate ULID"),
-                    },
-                    "---",
-                    {
                         opcode: "toggleVerboseLogs",
                         blockType: Scratch.BlockType.COMMAND,
                         text: Scratch.translate("[TOGGLE] verbose browser console logs"),
@@ -1419,6 +1449,49 @@
                                 type: Scratch.ArgumentType.NUMBER,
                                 menu: "logMode",
                                 defaultValue: "0",
+                            },
+                        },
+                    },
+                    {
+                        opcode: "toggleTurnOnly",
+                        blockType: Scratch.BlockType.COMMAND,
+                        text: Scratch.translate(
+                            "force TURN relay only? [MODE]"
+                        ),
+                        arguments: {
+                            MODE: {
+                                type: "Boolean",
+                                defaultValue: false,
+                            },
+                        },
+                    },
+                    {
+                        opcode: "configureStun",
+                        blockType: Scratch.BlockType.COMMAND,
+                        text: Scratch.translate("use STUN server [SERVER]"),
+                        arguments: {
+                            SERVER: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "stun:vpn.mikedev101.cc:5349",
+                            },
+                        },
+                    },
+                    {
+                        opcode: "configureTurn",
+                        blockType: Scratch.BlockType.COMMAND,
+                        text: Scratch.translate("use TURN server [SERVER] with username [USERNAME] and password [PASSWORD]"),
+                        arguments: {
+                            SERVER: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "turn:vpn.mikedev101.cc:5349",
+                            },
+                            USERNAME: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "free",
+                            },
+                            PASSWORD: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "free",
                             },
                         },
                     },
@@ -1964,20 +2037,29 @@
             };
         }
 
-        toggleVerboseLogs({VERBOSE}) {
-            this.net.verboseLogs = Scratch.Cast.toNumber(VERBOSE) == 1;
+        toggleVerboseLogs({TOGGLE}) {
+            this.net.verboseLogs = Scratch.Cast.toBoolean(TOGGLE);
+            console.log(this.net.verboseLogs);
         }
 
-        newULID() {
-            return this.ulidGenerator();
+        toggleTurnOnly({MODE}) {
+            this.net.turn_only = Scratch.Cast.toBoolean(MODE);
         }
 
-        enableVerboseLogs({ VERBOSE }) {
-            this.net.verboseLogs = Scratch.Cast.toBoolean(VERBOSE);
+        configureStun({SERVER}) {
+            this.net.stun_url = Scratch.Cast.toString(SERVER);
+        }
+
+        configureTurn({SERVER, USERNAME, PASSWORD}) {
+            this.net.turn_url = Scratch.Cast.toString(SERVER);
+            this.net.turn_username = Scratch.Cast.toString(USERNAME);
+            this.net.turn_password = Scratch.Cast.toString(PASSWORD);
         }
 
         changeKeepalive({ KEEPALIVE }) {
-            // ...
+            this.socket.enable_keepalive = Scratch.Cast.toBoolean(KEEPALIVE);
+
+            console.log(this.socket.enable_keepalive);
         }
 
         query_lobbies() {
@@ -2003,10 +2085,16 @@
         async initialize({SERVER}) {
             if (this.socket.isConnected()) return;
             return new Promise((resolve) => {
-                const session = this.socket.connect(Scratch.Cast.toString(SERVER));
+                const [session, socket] = this.socket.connect(Scratch.Cast.toString(SERVER));
 
                 session.onopen = () => {
                     console.log("Connected");
+
+                    socket.send(JSON.stringify({
+                        opcode: "META",
+                        payload: this.metadata,
+                    }))
+
                     resolve();
                 }
 
@@ -2017,6 +2105,47 @@
 
                 session.onerror = (err) => {
                     console.log("Error", err)
+                }
+
+                session.oninit = () => {
+
+                    this.net.bind("onpeerconnect", (peer) => {
+                        console.log("Peer connected: " + peer);
+                    })
+
+                    this.net.bind("onpeerdisconnect", (peer) => {
+                        console.log("Peer disconnected: " + peer);
+                    })
+
+                    this.net.bind("onring", async (peer) => {
+                        // TODO: add mechanism to accept or decline the call, for now automatically accept it
+                       await this.net.answerPeer(peer);
+                    })
+
+                    this.net.bind("gmsg", (peer, channel, payload) => {
+                        console.log("G_MSG", peer, channel, payload);
+                    })
+
+                    this.net.bind("pmsg", (peer, channel, payload) => {
+                        console.log("P_MSG", peer, channel, payload);
+                    })
+
+                    this.net.bind("gvar", (peer, channel, payload) => {
+                        console.log("G_VAR", peer, channel, payload);
+                    })
+
+                    this.net.bind("pvar", (peer, channel, payload) => {
+                        console.log("P_VAR", peer, channel, payload);
+                    })
+
+                    this.net.bind("glist", (peer, channel, payload) => {
+                        console.log("G_LIST", peer, channel, payload);
+                    })
+
+                    this.net.bind("plist", (peer, channel, payload) => {
+                        console.log("P_LIST", peer, channel, payload);
+                    })
+
                 }
             });
         }
@@ -2081,16 +2210,39 @@
             });
         }
 
-        send({ DATA, PEER, CHANNEL, WAIT }) {
-            // ...
+        async send({ DATA, PEER, CHANNEL, WAIT }) {
+            const packet = {
+                opcode: "P_MSG",
+                payload: DATA,
+            };
+
+            if (WAIT) {
+                await this.net.sendMessageToPeer(packet, PEER, CHANNEL);
+            } else {
+                this.net.sendMessageToPeer(packet, PEER, CHANNEL);
+            }
         }
 
-        broadcast({ DATA, CHANNEL, WAIT }) {
-            // ...
+        async broadcast({ DATA, CHANNEL, WAIT }) {
+            const packet = {
+                opcode: "G_MSG",
+                payload: DATA,
+            };
+
+            if (WAIT) {
+                let promises = Array.from(this.net.dataConnections.keys()).map((peer) => {
+                    return this.net.sendMessageToPeer(packet, peer, CHANNEL);
+                });
+                return Promise.all(promises);
+            }
+
+            Array.from(this.net.dataConnections.keys()).map((peer) => {
+                this.net.sendMessageToPeer(packet, peer, CHANNEL);
+            })
         }
 
         disconnect_peer({ PEER }) {
-            // ...
+            this.net.disconnectFromPeer(PEER);
         }
 
         leave() {
@@ -2119,7 +2271,7 @@
         }
 
         get_peers() {
-            // ...
+            return JSON.stringify(Array.from(this.net.dataConnections.keys()));
         }
 
         async authenticate({ TOKEN }) {
@@ -2164,7 +2316,9 @@
         }
 
         get_peer_channels({ PEER }) {
-            // ...
+            if (!this.net.peer) return "[]";
+            if (!this.net.peer.dataConnections.has(PEER)) return "[]";
+            return JSON.stringify(Array.from(this.net.dataConnections.get(PEER).channels.keys()));
         }
 
         is_peer_connected({ PEER }) {
@@ -2383,7 +2537,7 @@
         }
 
         get_new_peer() {
-            // ...
+            return this.net.readNewestPeerConnected();
         }
     }
 

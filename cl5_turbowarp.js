@@ -2423,6 +2423,10 @@
                 return;
             }
 
+            /*
+
+            // None of this code is suited for this function, it will be used in another
+
             const handler = this.networkedvariables.makeNetworkedVariable(myVar);
             if (!handler) return;
 
@@ -2439,6 +2443,8 @@
             };
 
             // ...
+
+            */
         }
 
         get_client_mode() {

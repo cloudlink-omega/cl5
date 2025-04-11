@@ -1279,7 +1279,6 @@
 
             this.peer.on("error", (err) => {
                 console.log("Peer error: " + err);
-                callbacks.call("onerror", {peer: this.peer, err});
             });
         }
 
@@ -3143,7 +3142,7 @@
         }
 
         disconnect_peer({ PEER }) {
-            this.net.disconnect(Scratch.Cast.toString(PEER));
+            this.net.disconnect_peer(Scratch.Cast.toString(PEER));
         }
 
         new_dchan({ CHANNEL, PEER, ORDERED }) {

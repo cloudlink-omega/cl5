@@ -267,7 +267,10 @@
         createVariableProxy(myVar, classtype) {
             if (!this.varEvents[classtype].has(myVar.id)) {
                 console.log("Created a", classtype, "event for var", myVar.id);
-                this.varEvents[classtype].set(myVar.id, myVar.id + "_set");
+                this.varEvents[classtype].set(myVar.id, {
+                    on: myVar.id + "_on",
+                    off: myVar.id + "_off",
+                });
             }
 
             const proxy = new Proxy(myVar, {
@@ -301,6 +304,7 @@
 
             if (!this.listEvents[classtype].has(myList.id)) {
                 this.listEvents[classtype].set(myList.id, {
+                    off: myList.id + "_off",
                     length: myList.id + "_length",
                     replace: myList.id + "_replace",
                     set: myList.id + "_set",
@@ -357,6 +361,7 @@
                             // Global variable was deleted
                             if (!vm.runtime.targets[0].variables[id]) {
                                 console.log("Global variable", id, "was deleted");
+                                callbacks.call(this.varEvents[element.classtype].get(id).off);
                                 this.varEvents[element.classtype].delete(id);
                                 this.networkUpdateTracker[element.classtype].delete(id);
                                 return;
@@ -368,6 +373,7 @@
                             // Clone holdin the variable was deleted
                             if (!vm.runtime.getTargetById(element.clone_id)) {
                                 console.log("Clone that was holding clone variable", id, "was deleted");
+                                callbacks.call(this.varEvents[element.classtype].get(id).off);
                                 this.varEvents[element.classtype].delete(id);
                                 this.networkUpdateTracker[element.classtype].delete(id);
                                 return;
@@ -375,6 +381,7 @@
                                 // Variable was deleted
                             } else if (!vm.runtime.getTargetById(element.clone_id).variables[id]) {
                                 console.log("Clone variable", id, "was deleted");
+                                callbacks.call(this.varEvents[element.classtype].get(id).off);
                                 this.varEvents[element.classtype].delete(id);
                                 this.networkUpdateTracker[element.classtype].delete(id);
                                 return;
@@ -386,6 +393,7 @@
                             // Variable was deleted
                             if (!vm.runtime.getTargetById(element.target_id).variables[id]) {
                                 console.log("Local variable", id, "was deleted");
+                                callbacks.call(this.varEvents[element.classtype].get(id).off);
                                 this.varEvents[element.classtype].delete(id);
                                 this.networkUpdateTracker[element.classtype].delete(id);
                                 return;
@@ -401,6 +409,7 @@
                             // Global list was deleted
                             if (!vm.runtime.targets[0].variables[id]) {
                                 console.log("Global list", id, "was deleted");
+                                callbacks.call(this.listEvents[element.classtype].get(id).off);
                                 this.listEvents[element.classtype].delete(id);
                                 this.networkUpdateTracker[element.classtype].delete(id);
                                 return;
@@ -420,6 +429,7 @@
                             // If the sprite that was managing the list was deleted, destroy bindings
                             if (!vm.runtime.getTargetById(element.clone_id)) {
                                 console.log("Clone that was holding list", id, "was deleted");
+                                callbacks.call(this.listEvents[element.classtype].get(id).off);
                                 this.listEvents[element.classtype].delete(id);
                                 this.networkUpdateTracker[element.classtype].delete(id);
                                 return;
@@ -427,6 +437,7 @@
                                 // If the list was deleted in the clone, destroy bindings
                             } else if (!vm.runtime.getTargetById(element.clone_id).variables[id]) {
                                 console.log("Clone list", id, "was deleted");
+                                callbacks.call(this.listEvents[element.classtype].get(id).off);
                                 this.listEvents[element.classtype].delete(id);
                                 this.networkUpdateTracker[element.classtype].delete(id);
                                 return;
@@ -445,6 +456,7 @@
                             // The list was deleted, so destroy it
                             if (!vm.runtime.getTargetById(element.target_id).variables[id]) {
                                 console.log("Local list", id, "was deleted");
+                                callbacks.call(this.listEvents[element.classtype].get(id).off);
                                 this.listEvents[element.classtype].delete(id);
                                 this.networkUpdateTracker[element.classtype].delete(id);
                                 return;
@@ -539,10 +551,10 @@
                 });
             }
 
-            const [varProxy, event] = this.createVariableProxy(myVar, classtype);
+            const [varProxy, events] = this.createVariableProxy(myVar, classtype);
             const tracker = this.networkUpdateTracker[classtype].get(myVar.id);
             tracker.proxy = varProxy;
-            tracker.events = event;
+            tracker.events = events;
 
             switch (classtype) {
                 case "global":
@@ -558,7 +570,7 @@
                     break;
             }
 
-            return [varProxy, event];
+            return [varProxy, events];
         }
 
         /**
@@ -673,7 +685,7 @@
 
         handle_var_update(myVarId, classtype, value) {
             const tracker = this.networkUpdateTracker[classtype].get(myVarId);
-            const event = this.varEvents[classtype].get(myVarId);
+            const events = this.varEvents[classtype].get(myVarId);
             if (tracker.current) {
                 tracker.current = false;
                 tracker.last = true;
@@ -682,7 +694,7 @@
                     tracker.last = false;
                     return;
                 }
-                callbacks.call(event, value);
+                callbacks.call(events.on, value);
             }
         }
     }
@@ -1934,7 +1946,7 @@
                         arguments: {
                             SERVER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ws://localhost:3000/ws?ugi=debug",
+                                defaultValue: "wss://cl5-peerjs.mikedev101.cc?ugi=debug",
                             }
                         }
                     },
@@ -3242,6 +3254,9 @@
             const [netListProxy, netListEvents] = netvars.makeNetworkedList(myList, util.target.id, !util.target.isOriginal ? util.target.id : undefined);
             if (!netListProxy) return;
 
+            // Add the list to the list of networked IDs
+            this.var_net_ids[ID] = netListProxy;
+
             callbacks.bind(netListEvents.length, (data) => {
                 console.log(listname, "length", data);
             });
@@ -3256,6 +3271,10 @@
 
             callbacks.bind(netListEvents.reset, (data) => {
                 console.log(listname, "reset", data);
+            });
+
+            callbacks.bind(netListEvents.off, () => {
+                delete this.var_net_ids[ID];
             });
         }
         make_private_networked_list({ LIST, PEER, CHANNEL, ID }, util) {
@@ -3270,6 +3289,9 @@
             const [netListProxy, netListEvents] = netvars.makeNetworkedList(myList, util.target.id, !util.target.isOriginal ? util.target.id : undefined);
             if (!netListProxy) return;
 
+            // Add the list to the list of networked IDs
+            this.var_net_ids[ID] = netListProxy;
+
             callbacks.bind(netListEvents.length, (data) => {
                 console.log(listname, "length", data);
             });
@@ -3285,6 +3307,10 @@
             callbacks.bind(netListEvents.reset, (data) => {
                 console.log(listname, "reset", data);
             });
+
+            callbacks.bind(netListEvents.off, () => {
+                delete this.var_net_ids[ID];
+            });
         }
 
         make_global_networked_var({ VAR, CHANNEL, ID }, util) {
@@ -3297,11 +3323,18 @@
             }
 
             // Convert the variable into a proxy
-            const [netVarProxy, netVarEvent] = netvars.makeNetworkedVariable(myVar, util.target.id, !util.target.isOriginal ? util.target.id : undefined);
+            const [netVarProxy, netVarEvents] = netvars.makeNetworkedVariable(myVar, util.target.id, !util.target.isOriginal ? util.target.id : undefined);
             if (!netVarProxy) return;
 
-            callbacks.bind(netVarEvent, (data) => {
+            // Add the variable to the list of networked IDs
+            this.var_net_ids[ID] = netVarProxy;
+
+            callbacks.bind(netVarEvents.on, (data) => {
                 console.log(varname, data);
+            });
+
+            callbacks.bind(netVarEvents.off, () => {
+                delete this.var_net_ids[ID];
             });
         }
 
@@ -3314,11 +3347,18 @@
                 return;
             }
 
-            const [netVarProxy, netVarEvent] = netvars.makeNetworkedVariable(myVar, util.target.id, !util.target.isOriginal ? util.target.id : undefined);
+            const [netVarProxy, netVarEvents] = netvars.makeNetworkedVariable(myVar, util.target.id, !util.target.isOriginal ? util.target.id : undefined);
             if (!netVarProxy) return;
 
-            callbacks.bind(netVarEvent, (data) => {
+            // Add the variable to the list of networked IDs
+            this.var_net_ids[ID] = netVarProxy;
+
+            callbacks.bind(netVarEvents.on, (data) => {
                 console.log(varname, data);
+            });
+
+            callbacks.bind(netVarEvents.off, () => {
+                delete this.var_net_ids[ID];
             });
         }
     }

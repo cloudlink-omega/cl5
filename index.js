@@ -1134,6 +1134,9 @@
                 case "P_LIST":
                     callbacks.call("plist", conn.peer, chan.label, payload);
                     break;
+                case "HANGUP":
+                    this.hangup_call(conn.peer);
+                    break;
                 case "NEW_CHAN":
                     if (chan.label !== "default") {
                         console.warn(
@@ -1331,7 +1334,9 @@
             if (!this.peer) return;
             if (!this.data_connections.has(ID)) return;
             this.data_connections.get(ID).close();
-        }
+            this.data_connections.delete(ID);
+            hangup_call(ID);
+    }
 
         /**
          * Checks if a peer is connected to us.
@@ -1595,7 +1600,7 @@
          * the permissions prompt will not appear. If the user has already denied permission,
          * the method will do nothing.
          * 
-         * @returns {Promise} - Resolves when the permission prompt is closed.
+         * @returns {Promise<MediaStream | void>} - Resolves when the permission prompt is closed.
          */
         async request_microphone_permissions() {
             if (this.hasMicPerms || this.myVoiceStream) return;
@@ -1603,8 +1608,8 @@
                 await navigator.mediaDevices
                     .getUserMedia({ audio: true })
                     .then((stream) => {
-                        this.myVoiceStream = stream;
                         this.hasMicPerms = true;
+                        return stream;
                     })
                     .catch((e) => {
                         console.warn(`Failed to get microphone permission. ${e}`);
@@ -1672,8 +1677,9 @@
         async call_peer(ID) {
             if (!this.is_connected()) return;
             if (!this.data_connections.has(ID)) return;
+            let stream;
             if (!this.hasMicPerms) {
-                await this.request_microphone_permissions();
+                stream = await this.request_microphone_permissions();
                 if (!this.hasMicPerms) return;
             }
             if (this.voice_connections.has(ID)) return;
@@ -1683,7 +1689,7 @@
                 { ifAvailable: true },
                 async () => {
                     if (this.verbose_logs) console.log("Calling peer", ID);
-                    const call = await this.peer.call(ID, this.myVoiceStream);
+                    const call = await this.peer.call(ID, stream);
                     this.handle_call(ID, call);
                 }
             );
@@ -1699,8 +1705,9 @@
          * If a connection exists, it closes the call associated with that peer.
          */
         hangup_call(ID) {
-            if (this.voice_connections.has(ID))
-                this.voice_connections.get(ID).call.close();
+            if (!this.voice_connections.has(ID)) return;
+            this.voice_connections.get(ID).call.close();
+            this.voice_connections.delete(ID);
         }
 
         /**
@@ -1717,8 +1724,9 @@
          */
         async answer_call(ID) {
             if (!this.peer) return;
+            let stream;
             if (!this.hasMicPerms) {
-                await this.request_microphone_permissions();
+                stream = await this.request_microphone_permissions();
                 if (!this.hasMicPerms) return;
             }
             if (!this.ringing_peers.has(ID)) return;
@@ -1729,7 +1737,7 @@
                 { ifAvailable: true },
                 async () => {
                     if (this.verbose_logs) console.log("Answering call from peer", ID);
-                    call.answer(this.myVoiceStream);
+                    call.answer(stream);
                     this.handle_call(ID, call);
                 }
             );
@@ -2944,6 +2952,10 @@
                     this.net.connect_to_peer(payload.user_id, payload.username);
                     break;
 
+                case "PEER_LEFT":
+                    this.net.disconnect_peer(payload);
+                    break;
+
                 case "NEW_LOBBY":
                     if (!(payload in this.lobbylist)) {
                         this.lobbylist.push(payload);
@@ -2989,27 +3001,20 @@
                     this.id = payload.user_id;
                     this.name = payload.username;
                     this.developer = payload.dev_id;
-
-                    let config = {};
-
+                    
+                    let settings = {};
+                    settings.config = {};
+                    settings.config.sdpSemantics = "unified-plan";
                     if (args.peerjs) {
-                        config = parsePeerJSURL(args.peerjs.host);
-                        config.pingInterval = args.peerjs.pingInterval;
+                        Object.assign(settings, parsePeerJSURL(args.peerjs.host));
+                        settings.pingInterval = args.peerjs.pingInterval;
                     }
 
-                    if (args.relay_only) {
-                        config.iceTransportPolicy = args.relay_only ? "relay" : "all";
-                    }
+                    if (args.relay_only) settings.config.iceTransportPolicy = args.relay_only ? "relay" : "all";
+                    if (args.ice_servers) settings.config.iceServers = args.ice_servers;
+                    if (args.logs) settings.debug = args.logs;
 
-                    if (args.ice_servers) {
-                        config.iceServers = args.ice_servers;
-                    }
-
-                    if (args.logs) {
-                        config.debug = args.logs;
-                    }
-
-                    this.net.create_peer(this.id, config);
+                    this.net.create_peer(this.id, settings);
                     break;
             }
         }
@@ -3234,7 +3239,9 @@
             this.net.call_peer(Scratch.Cast.toString(PEER));
         }
 
-        close_vchan({ PEER }) {
+        async close_vchan({ PEER }) {
+            if (!this.net.is_peer_voice_connected(PEER)) return;
+            await this.net.send_message_to_peer({opcode: "HANGUP"}, Scratch.Cast.toString(PEER), "default");
             this.net.hangup_call(Scratch.Cast.toString(PEER));
         }
 

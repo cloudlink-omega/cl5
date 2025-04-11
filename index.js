@@ -1151,10 +1151,12 @@
                         conn.idCounter = id;
 
                         newchan.onopen = () => {
+                            console.log(`Channel ${label} opened with ${conn.peer}`);
                             this.handle_channel_open(conn, newchan);
                         };
 
                         newchan.onclose = () => {
+                            console.log(`Channel ${label} with ${conn.peer} closed`);
                             this.handle_channel_close(conn, newchan);
                         };
 
@@ -1368,10 +1370,12 @@
                 });
 
                 chan.onopen = () => {
+                    console.log(`Channel ${CHANNEL} opened with ${ID}`);
                     this.handle_channel_open(conn, chan);
                 };
 
                 chan.onclose = () => {
+                    console.log(`Channel ${CHANNEL} with ${ID} closed`);
                     this.handle_channel_close(conn, chan);
                 };
 

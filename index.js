@@ -1975,7 +1975,8 @@
                     },
                     {
                         opcode: "auth_with_cookie",
-                        text: Scratch.translate('authenticate game server with cookie'),
+                        text: Scratch.translate('(NOT IMPLEMENTED) authenticate game server with cookie'),
+                        hideFromPalette: true,
                         blockType: Scratch.BlockType.COMMAND
                     },
                     {
@@ -2640,6 +2641,9 @@
         }
 
         auth_with_cookie() {
+            throw new Error("Not implemented");
+
+            // TODO
             if (this.conn_builder) this.conn_builder.auth = { mode: "cookie" };
         }
 

@@ -1001,7 +1001,7 @@
             this.hasMicPerms = false;
             this.verbose_logs = false;
             this.ringing_peers = new Map();
-            this.myVoiceStream;
+            this.localStreams = new Map();
             this.globalChannelData = new Map();
         }
 
@@ -1603,13 +1603,13 @@
          * @returns {Promise<MediaStream | void>} - Resolves when the permission prompt is closed.
          */
         async request_microphone_permissions() {
-            if (this.hasMicPerms || this.myVoiceStream) return;
+            if (this.hasMicPerms) return;
             if (await Scratch.canRecordAudio()) {
                 await navigator.mediaDevices
                     .getUserMedia({ audio: true })
-                    .then((stream) => {
+                    .then((localStream) => {
                         this.hasMicPerms = true;
-                        return stream;
+                        return localStream;
                     })
                     .catch((e) => {
                         console.warn(`Failed to get microphone permission. ${e}`);
@@ -1617,20 +1617,17 @@
                     });
             }
         }
-
+        
         /**
-         * Checks if the microphone is muted for the given peer connection.
+         * Determines if the microphone corresponding to the given ID is muted.
          *
-         * @param {string} ID - The ID of the peer to check the microphone status for.
-         * @returns {boolean} - True if the microphone is muted, false otherwise or if the peer doesn't exist.
+         * @param {string} ID - The ID of the stream to check.
+         * @returns {boolean} - True if the microphone is muted, false otherwise.
          */
         is_microphone_muted(ID) {
-            if (!this.voice_connections.has(ID)) return;
-            const voiceConnection = this.voice_connections.get(ID);
-            return (
-                (voiceConnection.getSenders().length > 0) && // Check if there are senders
-                (!voiceConnection.getSenders()[0].track.enabled) // Check if the audio track is muted (enabled = false)
-            );
+            if (!this.localStreams.has(ID)) return;
+            const localStream = this.localStreams.get(ID);
+            return localStream.getSenders().every((sender) => !sender.track.enabled);
         }
 
         /**
@@ -1641,14 +1638,11 @@
          * @returns {void}
          */
         set_microphone_state(ID, STATE) {
-            if (!this.voice_connections.has(ID)) return;
-            const voiceConnection = this.voice_connections.get(ID);
-            const senders = voiceConnection.getSenders();
-            for (const s of senders) {
-                const t = s.track;
-                if (t.kind !== "audio") continue;
-                t.enabled = STATE;
-            }
+            if (!this.localStreams.has(ID)) return;
+            const localStream = this.localStreams.get(ID);
+            localStream.getAudioTracks().forEach((track) => {
+                track.enabled = STATE;
+            });
         }
 
         /**
@@ -1677,9 +1671,9 @@
         async call_peer(ID) {
             if (!this.is_connected()) return;
             if (!this.data_connections.has(ID)) return;
-            let stream;
+            let localStream;
             if (!this.hasMicPerms) {
-                stream = await this.request_microphone_permissions();
+                localStream = await this.request_microphone_permissions();
                 if (!this.hasMicPerms) return;
             }
             if (this.voice_connections.has(ID)) return;
@@ -1688,8 +1682,9 @@
                 lock_id,
                 { ifAvailable: true },
                 async () => {
+                    if (!this.localStreams.has(ID)) this.localStreams.set(ID, localStream);
                     if (this.verbose_logs) console.log("Calling peer", ID);
-                    const call = await this.peer.call(ID, stream);
+                    const call = await this.peer.call(ID, localStream);
                     this.handle_call(ID, call);
                 }
             );
@@ -1724,9 +1719,9 @@
          */
         async answer_call(ID) {
             if (!this.peer) return;
-            let stream;
+            let localStream;
             if (!this.hasMicPerms) {
-                stream = await this.request_microphone_permissions();
+                localStream = await this.request_microphone_permissions();
                 if (!this.hasMicPerms) return;
             }
             if (!this.ringing_peers.has(ID)) return;
@@ -1736,8 +1731,9 @@
                 lock_id,
                 { ifAvailable: true },
                 async () => {
+                    if (!this.localStreams.has(ID)) this.localStreams.set(ID, localStream);
                     if (this.verbose_logs) console.log("Answering call from peer", ID);
-                    call.answer(stream);
+                    call.answer(localStream);
                     this.handle_call(ID, call);
                 }
             );
@@ -1752,20 +1748,61 @@
          */
         handle_call(id, call) {
 
+            if (!this.audioContext) {
+                this.audioContext = vm.runtime.audioEngine.audioContext;
+                if (!this.audioContext) throw new Error("Audio context not found or not yet initialized!");
+            }
+
             call.on("stream", (remoteStream) => {
                 if (this.ringing_peers.has(id)) this.ringing_peers.delete(id);
-                const audio = document.createElement("audio");
-                audio.srcObject = remoteStream;
-                audio.autoplay = true;
+
+                // Initialize elements
+                const source = this.audioContext.createMediaStreamSource(remoteStream);
+                const panner = this.audioContext.createPanner();
+                const gain = this.audioContext.createGain();
+
+                // Default to full volume
+                gain.gain.value = 1; 
+
+                // Configure panner
+                panner.panningModel = "HRTF";
+                panner.distanceModel = "inverse";
+                panner.refDistance = 1;
+                panner.maxDistance = 10000;
+                panner.rolloffFactor = 1;
+                panner.coneInnerAngle = 360;
+                panner.coneOuterAngle = 0;
+                panner.coneOuterGain = 0;
+                
+                // Place the panner in center
+                panner.positionX = 0;
+                panner.positionY = 0;
+                panner.positionZ = 0;
+
+                // Connect elements
+                source.connect(panner);
+                panner.connect(gain);
+                gain.connect(this.audioContext.destination);
+
+                // Store elements
                 this.voice_connections.set(id, {
                     call: call,
-                    audio: audio,
+                    audio: remoteStream,
+                    gain,
+                    panner
                 });
+
+                // Log to console
                 if (this.verbose_logs) console.log("Opening audio stream for call with peer", id);
-                audio.play();
+                if (this.audioContext.state === "suspended") {
+                    this.audioContext.resume();
+                }
             });
 
             call.on("close", () => {
+                if (this.localStreams.has(id)) {
+                    this.localStreams.delete(id);
+                }
                 if (this.ringing_peers.has(id)) {
                     if (this.verbose_logs) console.log("Peer", id, "hung up while ringing");
                     this.ringing_peers.delete(id);
@@ -1778,6 +1815,58 @@
             call.on("error", (err) => {
                 console.warn("Call with peer " + id + " error: " + err);
             });
+        }
+
+        /**
+         * Sets the x-coordinate of the peer's audio in the spatial audio scene.
+         *
+         * @param {string} id - The ID of the peer to set the x-coordinate for.
+         * @param {number} x - The x-coordinate.
+         * @returns {void}
+         */
+        set_call_x(id, x) {
+            if (!this.voice_connections.has(id)) return;
+            const connection = this.voice_connections.get(id);
+            connection.panner.positionX = x;
+        }
+
+        /**
+         * Sets the y-coordinate of the peer's audio in the spatial audio scene.
+         *
+         * @param {string} id - The ID of the peer to set the y-coordinate for.
+         * @param {number} y - The y-coordinate.
+         * @returns {void}
+         */
+        set_call_y(id, x) {
+            if (!this.voice_connections.has(id)) return;
+            const connection = this.voice_connections.get(id);
+            connection.panner.positionY = y;
+        }
+
+        /**
+         * Sets the y-coordinate of the peer's audio in the spatial audio scene.
+         *
+         * @param {string} id - The ID of the peer to set the y-coordinate for.
+         * @param {number} y - The y-coordinate.
+         * @returns {void}
+         */
+        set_call_y(id, z) {
+            if (!this.voice_connections.has(id)) return;
+            const connection = this.voice_connections.get(id);
+            connection.panner.positionZ = z;
+        }
+
+        /**
+         * Sets the volume of the peer's audio in the spatial audio scene.
+         *
+         * @param {string} id - The ID of the peer to set the volume for.
+         * @param {number} volume - The volume, in the range [0-100].
+         * @returns {void}
+         */
+        set_call_volume(id, volume) {
+            if (!this.voice_connections.has(id)) return;
+            const connection = this.voice_connections.get(id);
+            connection.gain.value = (volume / 100).toFixed(2);
         }
 
         /**

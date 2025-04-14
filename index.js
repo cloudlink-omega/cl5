@@ -24,9 +24,9 @@
     SOFTWARE.
 */
 
-(async function (Scratch) {
+(function (Scratch) {
     'use strict';
-    const version = "1.0.0-alpha.1";
+    const version = "1.0.0-alpha.2";
     const blockIconURI =
         "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTc3IiBoZWlnaHQ9IjEyMyIgdmlld0JveD0iMCAwIDE3NyAxMjMiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMF8xXzE5KSI+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNMTM0LjMyIDM4LjUxMjlDMTU3LjU2MSAzOC41MTI5IDE3Ni4zOTkgNTcuMzUyMyAxNzYuMzk5IDgwLjU5MThDMTc2LjM5OSAxMDMuODMxIDE1Ny41NjEgMTIyLjY3MSAxMzQuMzIgMTIyLjY3MUg0Mi4wNzg5QzE4LjgzOCAxMjIuNjcxIDAgMTAzLjgzMSAwIDgwLjU5MThDMCA1Ny4zNTIzIDE4LjgzOCAzOC41MTI5IDQyLjA3ODkgMzguNTEyOUg0Ni4yNjc4QzQ4LjA3OTMgMTYuOTQyMyA2Ni4xNjEzIDAgODguMTk5MyAwQzExMC4yMzcgMCAxMjguMzE5IDE2Ljk0MjMgMTMwLjEzMSAzOC41MTI5SDEzNC4zMloiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik04Ny40MTk4IDEwNS4zMzNDODIuOTM3OCAxMDUuMzMzIDc4Ljc4NzggMTA0LjQ3NSA3NC45Njk4IDEwMi43NkM3MS4xNTE4IDEwMC45ODkgNjcuOTQyNSA5OC42NjUgNjUuMzQxOCA5NS43ODc3TDcxLjg5ODggODcuNTcwNkM3NC4yNzgyIDg5LjgzOTMgNzYuNzQwNSA5MS41ODIzIDc5LjI4NTggOTIuNzk5NkM4MS44ODY1IDk0LjAxNyA4NC40ODcyIDk0LjYyNTYgODcuMDg3OCA5NC42MjU2Qzg5LjUyMjUgOTQuNjI1NiA5MS42ODA1IDk0LjIzODMgOTMuNTYxOCA5My40NjM2Qzk1LjQ0MzIgOTIuNjMzNiA5Ni44ODE4IDkxLjQ5OTMgOTcuODc3OCA5MC4wNjA2Qzk4LjkyOTIgODguNTY2NiA5OS40NTQ4IDg2LjgyMzYgOTkuNDU0OCA4NC44MzE2Qzk5LjQ1NDggODIuOTUwMyA5OC45MjkyIDgxLjI5MDMgOTcuODc3OCA3OS44NTE2Qzk2LjgyNjUgNzguNDEzIDk1LjM4NzggNzcuMjc4NiA5My41NjE4IDc2LjQ0ODZDOTEuNzM1OCA3NS42MTg2IDg5LjY4ODUgNzUuMjAzNiA4Ny40MTk4IDc1LjIwMzZDODUuMzE3MiA3NS4yMDM2IDgzLjQzNTggNzUuMzk3MyA4MS43NzU4IDc1Ljc4NDZDODAuMTE1OCA3Ni4xNzIgNzguNjIxOCA3Ni42NDIzIDc3LjI5MzggNzcuMTk1NkM3NS45NjU4IDc3LjY5MzYgNzQuNzc2MiA3OC4yNDcgNzMuNzI0OCA3OC44NTU2TDY4LjA4MDggNzEuNjM0Nkw3MS42NDk4IDQ2LjMxOTZIMTA2LjUxVjU3LjAyNjZINzcuOTU3OEw4MC45NDU4IDUzLjM3NDZMNzguMjA2OCA3MS44MDA2TDc0LjMwNTggNjkuODkxNkM3NS4yNDY1IDY5LjExNyA3Ni41NDY4IDY4LjM5NzYgNzguMjA2OCA2Ny43MzM2Qzc5Ljg2NjggNjcuMDY5NiA4MS43MjA1IDY2LjUxNjMgODMuNzY3OCA2Ni4wNzM2Qzg1LjgxNTIgNjUuNjMxIDg3LjgzNDggNjUuNDA5NiA4OS44MjY4IDY1LjQwOTZDOTMuNzAwMiA2NS40MDk2IDk3LjI0MTUgNjYuMjM5NiAxMDAuNDUxIDY3Ljg5OTZDMTAzLjY2IDY5LjUwNDMgMTA2LjIzMyA3MS43NzMgMTA4LjE3IDc0LjcwNTZDMTEwLjEwNiA3Ny42MzgzIDExMS4wNzUgODEuMDY5IDExMS4wNzUgODQuOTk3NkMxMTEuMDc1IDg4LjgxNTYgMTEwLjAyMyA5Mi4yNzQgMTA3LjkyMSA5NS4zNzI3QzEwNS44MTggOTguNDE2IDEwMi45NjggMTAwLjg1MSA5OS4zNzE4IDEwMi42NzdDOTUuODMwNSAxMDQuNDQ3IDkxLjg0NjUgMTA1LjMzMyA4Ny40MTk4IDEwNS4zMzNaIiBmaWxsPSIjMEZCRDhDIi8+CjwvZz4KPGRlZnM+CjxjbGlwUGF0aCBpZD0iY2xpcDBfMV8xOSI+CjxyZWN0IHdpZHRoPSIxNzYuMzk5IiBoZWlnaHQ9IjEyMi42NzEiIGZpbGw9IndoaXRlIi8+CjwvY2xpcFBhdGg+CjwvZGVmcz4KPC9zdmc+Cg==";
     const menuIconURI =
@@ -75,39 +75,22 @@
         }
     }
 
-    /**
-     * Helper that returns a Promise that resolves when the given condition function returns true.
-     * The condition is checked every {interval} milliseconds, and if it has not
-     * returned true after {timeout} milliseconds, the Promise is rejected with a
-     * timeout error.
-     *
-     * @param {function(): boolean} condition - The condition to wait for.
-     * @param {number} [interval=100] - The interval in milliseconds between condition checks.
-     * @param {number} [timeout] - The maximum time in milliseconds to wait for the condition.
-     * @returns {Promise<void>}
-     * 
-     * @throws {Error} If the condition times out.
-     */
-    function until(condition, interval = 100, timeout) {
-        return new Promise((resolve, reject) => {
-            const startTime = Date.now();
-            function checkCondition() {
-                if (condition()) {
-                    resolve();
-                } else if (timeout && Date.now() - startTime > timeout) {
-                    reject(new Error('Timed out waiting for condition'));
-                } else {
-                    globalThis.setTimeout(checkCondition, interval);
-                }
-            }
-            checkCondition();
-        });
-    }
-
     // Ah yes, Perry the Platypus! It seems you have found my Callback-inator!
     class CallbackInator {
         constructor() {
             this.calls = new Map();
+            this.debug = 0;
+        }
+
+        /**
+         * Sets the debug level for the CallbackInator.
+         *
+         * @param {number} level - The desired debug level. Higher numbers enable more verbose logging.
+         * 
+         * Adjust the verbosity of logging for debugging purposes. A higher level means more detailed logs.
+         */
+        set_debug_level(level) {
+            this.debug = level;
         }
 
         /**
@@ -121,11 +104,12 @@
         unbind(name, id) {
             if (id == "*") {
                 this.calls.delete(name);
+                if (this.debug > 2) console.log(`Unbound all callbacks for "${name}"`);
                 return;
             }
             if (!this.calls[name] || !this.calls[name].has(id)) return;
             this.calls[name].delete(id);
-            console.log(`Unbound callback for "${name}" with ID "${id}"`);
+            if (this.debug > 2) console.log(`Unbound callback for "${name}" with ID "${id}"`);
         }
 
         /**
@@ -141,10 +125,11 @@
                 this.calls[name] = new Map();
             }
             if (typeof callback !== 'function') {
-                throw new TypeError('Callback must be a function');
+                if (self.debug > 0) console.error('Callback must be a function');
+                return;
             }
             this.calls[name].set(id, callback);
-            console.log(`Bound callback for "${name}" with ID "${id}"`);
+            if (this.debug > 2) console.log(`Bound callback for "${name}" with ID "${id}"`);
         }
 
         /**
@@ -160,32 +145,32 @@
          */
         call(name, ...args) {
             if (!this.calls[name]) {
-                console.warn(`No callbacks registered for "${name}"`);
+                if (this.debug > 1) console.warn(`No callbacks registered for "${name}"`);
                 return;
             };
             if (this.calls[name] === null) {
-                console.warn(`No callbacks registered for "${name}"`);
+                if (this.debug > 1) console.warn(`No callbacks registered for "${name}"`);
                 return;
             }
             if (this.calls[name].size === 0) {
-                console.warn(`No callbacks registered for "${name}"`);
+                if (this.debug > 1) console.warn(`No callbacks registered for "${name}"`);
                 return;
             }
             if (!(this.calls[name] instanceof Map)) {
-                console.error("Callback was not a map! Got ", typeof this.calls[name], "instead.");
+                if (this.debug > 0) console.error("Callback was not a map! Got ", typeof this.calls[name], "instead.");
                 return;
             }
-            console.log(`Executing callbacks for "${name}"`);
+            if (this.debug > 2) console.log(`Executing callbacks for "${name}"`);
             for (const callback of this.calls[name].values()) {
                 if (callback === null || typeof callback !== 'function') {
-                    console.warn(`Callback registered for "${name}" is null or not a function`);
+                    if (this.debug > 1) console.warn(`Callback registered for "${name}" is null or not a function`);
                     continue;
                 }
                 try {
-                    console.log(`Executing callback ${callback}"`);
+                    if (this.debug > 2) console.log(`Executing callback ${callback}"`);
                     callback(...args);
                 } catch (error) {
-                    console.error(`Error executing callback for "${name}"`, error);
+                    if (this.debug > 0) console.error(`Error executing callback for "${name}"`, error);
                 }
             }
         }
@@ -727,6 +712,10 @@
             this.sharedKeys = new Map();
         }
 
+        hasKeyPair() {
+            return this.publicKey != "" && this.privateKey != "";
+        }
+
         /**
          * Generates a key pair consisting of a public and private key.
          * @returns {Promise<void>}
@@ -1134,9 +1123,12 @@
                 case "P_LIST":
                     callbacks.call("plist", conn.peer, chan.label, payload);
                     break;
+                
                 case "HANGUP":
+                case "DECLINE":
                     this.hangup_call(conn.peer);
                     break;
+                
                 case "NEW_CHAN":
                     if (chan.label !== "default") {
                         console.warn(
@@ -1168,6 +1160,7 @@
                         newchan.onopen = () => {
                             console.log(`Channel ${label} opened with ${conn.peer}`);
                             this.handle_channel_open(conn, newchan);
+                            callbacks.call("on_chan_open", {peer: conn.peer, channel: label});
                         };
 
                         newchan.onclose = () => {
@@ -1255,9 +1248,7 @@
          * - "error": Triggers the "onerror" callback with the error message when an error occurs on the peer.
          */
         create_peer(ID, config) {
-            console.log(config);
             this.peer = new Peer(ID, config);
-
             this.peer.on("open", (id) => {
                 if (id === ID) {
                     this.peer_id = id;
@@ -1269,14 +1260,12 @@
                     }
                 }
             });
-
             this.peer.on("connection", (conn) => {
                 conn.idCounter = 2;
                 conn.channels = new Map();
                 this.data_connections.set(conn.peer, conn);
                 this.handle_data_connection(conn);
             });
-
             this.peer.on("call", async (call) => {
                 if (!this.hasMicPerms || this.voice_connections.has(call.peer)) {
                     call.close();
@@ -1285,15 +1274,12 @@
                 this.ringing_peers.set(call.peer, call);
                 callbacks.call("onring", call.peer);
             });
-
             this.peer.on("close", () => {
                 callbacks.call("ondestroy");
             });
-
             this.peer.on("disconnected", () => {
                 callbacks.call("ondisconnect");
             });
-
             this.peer.on("error", (err) => {
                 console.log("Peer error: " + err);
             });
@@ -1335,8 +1321,8 @@
             if (!this.data_connections.has(ID)) return;
             this.data_connections.get(ID).close();
             this.data_connections.delete(ID);
-            hangup_call(ID);
-    }
+            this.hangup_call(ID);
+        }
 
         /**
          * Checks if a peer is connected to us.
@@ -1389,11 +1375,13 @@
                 chan.onopen = () => {
                     console.log(`Channel ${CHANNEL} opened with ${ID}`);
                     this.handle_channel_open(conn, chan);
+                    callbacks.call("on_chan_open", {peer: ID, channel: CHANNEL});
                 };
 
                 chan.onclose = () => {
                     console.log(`Channel ${CHANNEL} with ${ID} closed`);
                     this.handle_channel_close(conn, chan);
+                    callbacks.call("on_chan_close", {peer: ID, channel: CHANNEL});
                 };
 
                 chan.onerror = (err) => {
@@ -1586,6 +1574,10 @@
             return this.newest_connected;
         }
 
+        async request_microphone_permissions() {
+            if (!this.hasMicPerms && await Scratch.canRecordAudio()) this.hasMicPerms = true;
+        }
+
         /**
          * Retrieves the ID of the most recently disconnected peer.
          * 
@@ -1593,29 +1585,6 @@
          */
         last_peer_disconnected() {
             return this.last_disconnected;
-        }
-
-        /**
-         * Requests microphone permissions. If the user has already granted permission,
-         * the permissions prompt will not appear. If the user has already denied permission,
-         * the method will do nothing.
-         * 
-         * @returns {Promise<MediaStream | void>} - Resolves when the permission prompt is closed.
-         */
-        async request_microphone_permissions() {
-            if (this.hasMicPerms) return;
-            if (await Scratch.canRecordAudio()) {
-                await navigator.mediaDevices
-                    .getUserMedia({ audio: true })
-                    .then((localStream) => {
-                        this.hasMicPerms = true;
-                        return localStream;
-                    })
-                    .catch((e) => {
-                        console.warn(`Failed to get microphone permission. ${e}`);
-                        this.hasMicPerms = false;
-                    });
-            }
         }
         
         /**
@@ -1625,9 +1594,9 @@
          * @returns {boolean} - True if the microphone is muted, false otherwise.
          */
         is_microphone_muted(ID) {
-            if (!this.localStreams.has(ID)) return;
+            if (!this.localStreams.has(ID)) return false;
             const localStream = this.localStreams.get(ID);
-            return localStream.getSenders().every((sender) => !sender.track.enabled);
+            return localStream.getAudioTracks().every((track) => !track.enabled);
         }
 
         /**
@@ -1640,9 +1609,7 @@
         set_microphone_state(ID, STATE) {
             if (!this.localStreams.has(ID)) return;
             const localStream = this.localStreams.get(ID);
-            localStream.getAudioTracks().forEach((track) => {
-                track.enabled = STATE;
-            });
+            localStream.getAudioTracks().forEach((track) => {track.enabled = STATE;});
         }
 
         /**
@@ -1670,22 +1637,34 @@
          */
         async call_peer(ID) {
             if (!this.is_connected()) return;
-            if (!this.data_connections.has(ID)) return;
-            let localStream;
-            if (!this.hasMicPerms) {
-                localStream = await this.request_microphone_permissions();
-                if (!this.hasMicPerms) return;
-            }
+            if (!this.is_other_peer_connected(ID)) return;
             if (this.voice_connections.has(ID)) return;
+
+            // Redirect the function call if the peer is already ringing
+            if (this.ringing_peers.has(ID)) {
+                return await this.answer_call(ID);;
+            };
+
+            if (!this.hasMicPerms && await Scratch.canRecordAudio()) this.hasMicPerms = true;
+            if (!this.hasMicPerms) return;
+
             const lock_id = "mikedevcl5_" + ID + "_call";
             await navigator.locks.request(
                 lock_id,
                 { ifAvailable: true },
                 async () => {
-                    if (!this.localStreams.has(ID)) this.localStreams.set(ID, localStream);
-                    if (this.verbose_logs) console.log("Calling peer", ID);
-                    const call = await this.peer.call(ID, localStream);
-                    this.handle_call(ID, call);
+                    await navigator.mediaDevices
+                    .getUserMedia({ audio: true })
+                    .then(async(localStream) => {
+                        if (!this.localStreams.has(ID)) this.localStreams.set(ID, localStream);
+                        if (this.verbose_logs) console.log("Obtained local stream: ", localStream);
+                        if (this.verbose_logs) console.log("Calling peer", ID);
+                        const call = await this.peer.call(ID, localStream);
+                        this.handle_call(ID, call);
+                    })
+                    .catch((e) => {
+                        if (this.verbose_logs) console.warn(`Failed to get local stream: ${e}`);
+                    });
                 }
             );
         }
@@ -1719,24 +1698,44 @@
          */
         async answer_call(ID) {
             if (!this.peer) return;
-            let localStream;
-            if (!this.hasMicPerms) {
-                localStream = await this.request_microphone_permissions();
-                if (!this.hasMicPerms) return;
-            }
+            if (!this.is_other_peer_connected(ID)) return;
             if (!this.ringing_peers.has(ID)) return;
+
+            if (!this.hasMicPerms && await Scratch.canRecordAudio()) this.hasMicPerms = true;
+            if (!this.hasMicPerms) return;
+            
             const call = this.ringing_peers.get(ID);
             const lock_id = "mikedevcl5_" + ID + "_call";
             await navigator.locks.request(
                 lock_id,
                 { ifAvailable: true },
                 async () => {
-                    if (!this.localStreams.has(ID)) this.localStreams.set(ID, localStream);
-                    if (this.verbose_logs) console.log("Answering call from peer", ID);
-                    call.answer(localStream);
-                    this.handle_call(ID, call);
+                    await navigator.mediaDevices
+                    .getUserMedia({ audio: true })
+                    .then(async(localStream) => {
+                        if (!this.localStreams.has(ID)) this.localStreams.set(ID, localStream);
+                        if (this.verbose_logs) console.log("Obtained local stream: ", localStream);
+                        if (this.verbose_logs) console.log("Answering call from peer", ID);
+                        call.answer(localStream);
+                        this.handle_call(ID, call);
+                    })
+                    .catch((e) => {
+                        if (this.verbose_logs) console.warn(`Failed to get local stream: ${e}`);
+                    });
                 }
             );
+        }
+
+        async decline_call(ID) {
+            if (!this.peer) return;
+            if (!this.is_other_peer_connected(ID)) return;
+            if (!this.ringing_peers.has(ID)) return;
+
+            if (!this.hasMicPerms && await Scratch.canRecordAudio()) this.hasMicPerms = true;
+            if (!this.hasMicPerms) return;
+            
+            if (this.verbose_logs) console.log("Declining call from peer", ID);
+            this.send_message_to_peer({opcode: "DECLINE"}, ID, "default");
         }
 
         /**
@@ -1753,18 +1752,19 @@
                 if (!this.audioContext) throw new Error("Audio context not found or not yet initialized!");
             }
 
+            if (!call) {
+                throw new Error("Got undefined call argument!");
+            }
+
             call.on("stream", (remoteStream) => {
                 if (this.ringing_peers.has(id)) this.ringing_peers.delete(id);
 
-                // Initialize elements
+                // Initialize source
                 const source = this.audioContext.createMediaStreamSource(remoteStream);
+                if (this.verbose_logs) console.log("Initialized Media Stream Source", source);
+                
+                // Initialize panner
                 const panner = this.audioContext.createPanner();
-                const gain = this.audioContext.createGain();
-
-                // Default to full volume
-                gain.gain.value = 1; 
-
-                // Configure panner
                 panner.panningModel = "HRTF";
                 panner.distanceModel = "inverse";
                 panner.refDistance = 1;
@@ -1773,11 +1773,15 @@
                 panner.coneInnerAngle = 360;
                 panner.coneOuterAngle = 0;
                 panner.coneOuterGain = 0;
-                
-                // Place the panner in center
-                panner.positionX = 0;
-                panner.positionY = 0;
-                panner.positionZ = 0;
+                panner.positionX.value = 0;
+                panner.positionY.value = 0;
+                panner.positionZ.value = 0;
+                if (this.verbose_logs) console.log("Initialized Panner", panner);
+
+                // Initialize gain
+                const gain = this.audioContext.createGain();
+                gain.gain.value = 1; 
+                if (this.verbose_logs) console.log("Initialized Gain", gain);
 
                 // Connect elements
                 source.connect(panner);
@@ -1791,10 +1795,13 @@
                     gain,
                     panner
                 });
+                if (this.verbose_logs) console.log("Stored elements for call with peer", id, " - ", this.voice_connections.get(id));
 
                 // Log to console
                 if (this.verbose_logs) console.log("Opening audio stream for call with peer", id);
+
                 if (this.audioContext.state === "suspended") {
+                    if (this.verbose_logs) console.log("Resuming audio context");
                     this.audioContext.resume();
                 }
             });
@@ -1827,7 +1834,19 @@
         set_call_x(id, x) {
             if (!this.voice_connections.has(id)) return;
             const connection = this.voice_connections.get(id);
-            connection.panner.positionX = x;
+            connection.panner.positionX.value = x;
+        }
+
+        get_call_x(id) {
+            if (!this.voice_connections.has(id)) return;
+            const connection = this.voice_connections.get(id);
+            return connection.panner.positionX.value;
+        }
+
+        change_call_x(id, steps) {
+            if (!this.voice_connections.has(id)) return;
+            const connection = this.voice_connections.get(id);
+            connection.panner.positionX.value = connection.panner.positionX.value + steps;
         }
 
         /**
@@ -1837,10 +1856,22 @@
          * @param {number} y - The y-coordinate.
          * @returns {void}
          */
-        set_call_y(id, x) {
+        set_call_y(id, y) {
             if (!this.voice_connections.has(id)) return;
             const connection = this.voice_connections.get(id);
-            connection.panner.positionY = y;
+            connection.panner.positionY.value = y;
+        }
+
+        get_call_y(id) {
+            if (!this.voice_connections.has(id)) return;
+            const connection = this.voice_connections.get(id);
+            return connection.panner.positionY.value;
+        }
+
+        change_call_y(id, steps) {
+            if (!this.voice_connections.has(id)) return;
+            const connection = this.voice_connections.get(id);
+            connection.panner.positionY.value = connection.panner.positionY.value + steps;
         }
 
         /**
@@ -1850,10 +1881,22 @@
          * @param {number} y - The y-coordinate.
          * @returns {void}
          */
-        set_call_y(id, z) {
+        set_call_z(id, z) {
             if (!this.voice_connections.has(id)) return;
             const connection = this.voice_connections.get(id);
-            connection.panner.positionZ = z;
+            connection.panner.positionZ.value = z;
+        }
+
+        get_call_z(id) {
+            if (!this.voice_connections.has(id)) return;
+            const connection = this.voice_connections.get(id);
+            return connection.panner.positionZ.value;
+        }
+        
+        change_call_z(id, steps) {
+            if (!this.voice_connections.has(id)) return;
+            const connection = this.voice_connections.get(id);
+            connection.panner.positionZ.value = connection.panner.positionZ.value + steps;
         }
 
         /**
@@ -1866,7 +1909,19 @@
         set_call_volume(id, volume) {
             if (!this.voice_connections.has(id)) return;
             const connection = this.voice_connections.get(id);
-            connection.gain.value = (volume / 100).toFixed(2);
+            connection.gain.gain.value = (volume / 100).toFixed(2);
+        }
+
+        get_call_volume(id) {
+            if (!this.voice_connections.has(id)) return;
+            const connection = this.voice_connections.get(id);
+            return (connection.gain.gain.value * 100).toFixed(2);
+        }
+
+        change_call_volume(id, steps) {
+            if (!this.voice_connections.has(id)) return;
+            const connection = this.voice_connections.get(id);
+            connection.gain.gain.value = connection.gain.gain.value + steps;
         }
 
         /**
@@ -1910,10 +1965,13 @@
             this.conn = null;
             this.id, this.name, this.lobbyhost = "";
             this.initialized = false;
+            this.lastErrorMessage = "";
+            this.lastPeerError = "";
             this.mode = "";
             this.lobbylist = [];
             this.lobbyinfo = {};
             this.var_net_ids = {};
+            this.verbose_logs = false;
 
             // for passthrough
             this.callbacks = callbacks;
@@ -1968,6 +2026,7 @@
                         text: Scratch.translate("when my player mode changes"),
                         isEdgeActivated: false,
                     },
+                    "---",
                     {
                         opcode: "is_session_connected",
                         blockType: Scratch.BlockType.BOOLEAN,
@@ -1988,6 +2047,7 @@
                         blockType: Scratch.BlockType.REPORTER,
                         text: Scratch.translate("my current player mode"),
                     },
+                    "---",
                     {
                         opcode: "disconnect",
                         text: Scratch.translate('disconnect from session server'),
@@ -1997,6 +2057,23 @@
                         opcode: "reconnect",
                         text: Scratch.translate('reconnect to session server'),
                         blockType: Scratch.BlockType.COMMAND,
+                    },
+                    "---",
+                    {
+                        opcode: "on_player_session_error",
+                        blockType: Scratch.BlockType.EVENT,
+                        text: Scratch.translate("when my player session gets an error"),
+                        isEdgeActivated: false,
+                    },
+                    {
+                        opcode: "get_client_error",
+                        blockType: Scratch.BlockType.REPORTER,
+                        text: Scratch.translate("last error message"),
+                    },
+                    {
+                        opcode: "get_client_error_peer",
+                        blockType: Scratch.BlockType.REPORTER,
+                        text: Scratch.translate("last error peer"),
                     },
                     "---",
                     {
@@ -2092,6 +2169,17 @@
                         blockType: Scratch.BlockType.COMMAND
                     },
                     {
+                        opcode: "auth_with_name",
+                        text: Scratch.translate('authenticate game server with default token and set username to [USERNAME]'),
+                        blockType: Scratch.BlockType.COMMAND,
+                        arguments: {
+                            USERNAME: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "",
+                            }
+                        }
+                    },
+                    {
                         opcode: "set_peerjs_server",
                         text: Scratch.translate('using session server [SERVER] with key: [KEY] and ping every [PING] seconds'),
                         blockType: Scratch.BlockType.COMMAND,
@@ -2109,19 +2197,6 @@
                                 defaultValue: "5",
                             },
                         }
-                    },
-                    "---",
-                    {
-                        blockType: Scratch.BlockType.LABEL,
-                        text: Scratch.translate("🧊 ICE Config"),
-                    },
-                    {
-                        blockType: Scratch.BlockType.LABEL,
-                        text: Scratch.translate("(use with the connection"),
-                    },
-                    {
-                        blockType: Scratch.BlockType.LABEL,
-                        text: Scratch.translate("builder above!)"),
                     },
                     {
                         opcode: "ice_list_builder",
@@ -2184,6 +2259,7 @@
                         blockType: Scratch.BlockType.COMMAND,
                         text: Scratch.translate("refresh public lobbies list"),
                     },
+                    "---",
                     {
                         opcode: "lobby_info",
                         blockType: Scratch.BlockType.REPORTER,
@@ -2199,6 +2275,34 @@
                                 defaultValue: "DemoLobby",
                             },
                         },
+                    },
+                    "---",
+                    {
+                        opcode: "init_peer_mode",
+                        blockType: Scratch.BlockType.COMMAND,
+                        text: Scratch.translate(
+                            "join lobby [LOBBY] with password [PASSWORD]"
+                        ),
+                        arguments: {
+                            LOBBY: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "DemoLobby",
+                            },
+                            PASSWORD: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "",
+                            },
+                        },
+                    },
+                    "---",
+                    {
+                        blockType: Scratch.BlockType.LABEL,
+                        text: Scratch.translate("⚙️ Lobby hosting"),
+                    },
+                    {
+                        opcode: "is_lobby_host",
+                        blockType: Scratch.BlockType.BOOLEAN,
+                        text: Scratch.translate("am I the lobby host?"),
                     },
                     {
                         blockType: Scratch.BlockType.LABEL,
@@ -2221,7 +2325,7 @@
                             },
                             PEERS: {
                                 type: Scratch.ArgumentType.NUMBER,
-                                defaultValue: 0,
+                                defaultValue: "-1",
                             },
                             PASSWORD: {
                                 type: Scratch.ArgumentType.STRING,
@@ -2238,21 +2342,78 @@
                         },
                     },
                     {
-                        opcode: "init_peer_mode",
+                        opcode: "set_lock_flag",
                         blockType: Scratch.BlockType.COMMAND,
                         text: Scratch.translate(
-                            "join lobby [LOBBY] with password [PASSWORD]"
+                            "set locked access to [LOCK]"
                         ),
                         arguments: {
-                            LOBBY: {
-                                type: Scratch.ArgumentType.STRING,
-                                defaultValue: "DemoLobby",
-                            },
-                            PASSWORD: {
-                                type: Scratch.ArgumentType.STRING,
-                                defaultValue: "",
+                            LOCK: {
+                                type: Scratch.ArgumentType.BOOLEAN,
+                                defaultValue: false,
                             },
                         },
+                    },
+                    {
+                        opcode: "set_player_limit_value",
+                        blockType: Scratch.BlockType.COMMAND,
+                        text: Scratch.translate(
+                            "set the player limit to [PEERS]"
+                        ),
+                        arguments: {
+                            PEERS: {
+                                type: Scratch.ArgumentType.NUMBER,
+                                defaultValue: "-1",
+                            },
+                        },
+                    },
+                    {
+                        opcode: "set_password_value",
+                        blockType: Scratch.BlockType.COMMAND,
+                        text: Scratch.translate(
+                            "set the lobby password to [PASSWORD]"
+                        ),
+                        arguments: {
+                            PASSWORD: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "change me",
+                            },
+                        },
+                    },
+                    {
+                        opcode: "kick_peer_from_lobby",
+                        blockType: Scratch.BlockType.COMMAND,
+                        text: Scratch.translate(
+                            "kick [PEER] from the lobby"
+                        ),
+                        arguments: {
+                            PEER: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "ID",
+                            },
+                        },
+                    },
+                    {
+                        opcode: "transfer_ownership",
+                        blockType: Scratch.BlockType.COMMAND,
+                        hideFromPalette: true,
+                        text: Scratch.translate(
+                            "(NOT IMPLEMENTED) transfer ownership of the lobby to [PEER]"
+                        ),
+                        arguments: {
+                            PEER: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "ID",
+                            },
+                        },
+                    },
+                    {
+                        opcode: "close_lobby",
+                        blockType: Scratch.BlockType.COMMAND,
+                        hideFromPalette: true,
+                        text: Scratch.translate(
+                            "(NOT IMPLEMENTED) close the lobby and destroy session"
+                        ),
                     },
                     "---",
                     {
@@ -2270,6 +2431,7 @@
                         blockType: Scratch.BlockType.REPORTER,
                         text: Scratch.translate("newest player connected"),
                     },
+                    "---",
                     {
                         opcode: "on_peer_left",
                         blockType: Scratch.BlockType.EVENT,
@@ -2287,7 +2449,7 @@
                         blockType: Scratch.BlockType.REPORTER,
                         text: Scratch.translate("last player disconnected"),
                     },
-                    
+                    "---",
                     {
                         opcode: "get_peers",
                         blockType: Scratch.BlockType.REPORTER,
@@ -2329,7 +2491,7 @@
                     {
                         opcode: "disconnect_peer",
                         blockType: Scratch.BlockType.COMMAND,
-                        text: Scratch.translate("close connection with peer [PEER]"),
+                        text: Scratch.translate("disconnect peer [PEER]"),
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
@@ -2343,10 +2505,26 @@
                         text: Scratch.translate("📡 Channels"),
                     },
                     {
+                        opcode: "on_new_dchan",
+                        blockType: Scratch.BlockType.EVENT,
+                        isEdgeActivated: false,
+                        text: Scratch.translate("when channel [CHANNEL] is created with peer [PEER]"),
+                        arguments: {
+                            CHANNEL: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "foobar",
+                            },
+                            ID: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "ID",
+                            },
+                        }
+                    },
+                    {
                         opcode: "new_dchan",
                         blockType: Scratch.BlockType.COMMAND,
                         text: Scratch.translate(
-                            "open new channel named [CHANNEL] with player [PEER] ordered? [ORDERED]"
+                            "open a new channel named [CHANNEL] with player [PEER] and prefer [ORDERED]"
                         ),
                         arguments: {
                             CHANNEL: {
@@ -2358,10 +2536,29 @@
                                 defaultValue: "ID",
                             },
                             ORDERED: {
+                                menu: "ordered_menu",
+                                acceptReporters: true,
                                 type: Scratch.ArgumentType.BOOLEAN,
-                                defaultValue: false,
+                                defaultValue: "true",
                             },
                         },
+                    },
+                    "---",
+                    {
+                        opcode: "on_close_dchan",
+                        blockType: Scratch.BlockType.EVENT,
+                        isEdgeActivated: false,
+                        text: Scratch.translate("when channel [CHANNEL] is closed with peer [PEER]"),
+                        arguments: {
+                            CHANNEL: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "foobar",
+                            },
+                            ID: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "ID",
+                            },
+                        }
                     },
                     {
                         opcode: "close_dchan",
@@ -2595,11 +2792,6 @@
                         text: Scratch.translate("🎙️ Voice Chat"),
                     },
                     {
-                        opcode: "request_mic_perms",
-                        blockType: Scratch.BlockType.COMMAND,
-                        text: Scratch.translate("request microphone access"),
-                    },
-                    {
                         opcode: "get_mic_perms",
                         blockType: Scratch.BlockType.BOOLEAN,
                         text: Scratch.translate("do I have microphone access?"),
@@ -2630,6 +2822,12 @@
                             },
                         },
                     },
+                    "---",
+                    {
+                        opcode: "request_mic_perms",
+                        blockType: Scratch.BlockType.COMMAND,
+                        text: Scratch.translate("request microphone access"),
+                    },
                     {
                         opcode: "change_mic_state",
                         blockType: Scratch.BlockType.COMMAND,
@@ -2648,6 +2846,7 @@
                             },
                         },
                     },
+                    "---",
                     {
                         opcode: "when_peer_rings",
                         blockType: Scratch.BlockType.EVENT,
@@ -2661,20 +2860,33 @@
                         },
                     },
                     {
-                        opcode: "new_vchan",
-                        blockType: Scratch.BlockType.COMMAND,
-                        text: Scratch.translate("call player [PEER]"),
+                        opcode: "when_peer_answers",
+                        blockType: Scratch.BlockType.EVENT,
+                        isEdgeActivated: false,
+                        text: Scratch.translate("when peer [ID] answers my voice call"),
                         arguments: {
-                            PEER: {
+                            ID: {
                                 type: Scratch.ArgumentType.STRING,
                                 defaultValue: "ID",
                             },
                         },
                     },
                     {
-                        opcode: "close_vchan",
+                        opcode: "when_peer_declines",
+                        blockType: Scratch.BlockType.EVENT,
+                        isEdgeActivated: false,
+                        text: Scratch.translate("when peer [ID] declines my voice call"),
+                        arguments: {
+                            ID: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "ID",
+                            },
+                        },
+                    },
+                    {
+                        opcode: "new_vchan",
                         blockType: Scratch.BlockType.COMMAND,
-                        text: Scratch.translate("hangup [PEER]"),
+                        text: Scratch.translate("call player [PEER]"),
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
@@ -2695,8 +2907,222 @@
                             },
                         },
                     },
+                    {
+                        opcode: "decline_vchan",
+                        blockType: Scratch.BlockType.COMMAND,
+                        text: Scratch.translate(
+                            "decline call from [PEER]"
+                        ),
+                        arguments: {
+                            PEER: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "ID",
+                            },
+                        },
+                    },
+                    {
+                        opcode: "close_vchan",
+                        blockType: Scratch.BlockType.COMMAND,
+                        text: Scratch.translate("hangup [PEER]"),
+                        arguments: {
+                            PEER: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "ID",
+                            },
+                        },
+                    },
+                    "---",
+                    {
+                        blockType: Scratch.BlockType.LABEL,
+                        text: Scratch.translate("🔊 Volume"),
+                    },
+                    {
+                        opcode: "get_vchan_volume",
+                        blockType: Scratch.BlockType.REPORTER,
+                        text: Scratch.translate("player [PEER] voice volume"),
+                        arguments: {
+                            PEER: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "ID",
+                            },
+                        },
+                    },
+                    {
+                        opcode: "set_vchan_volume",
+                        blockType: Scratch.BlockType.COMMAND,
+                        text: Scratch.translate("set player [PEER] voice volume to [VOLUME]"),
+                        arguments: {
+                            PEER: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "ID",
+                            },
+                            VOLUME: {
+                                type: Scratch.ArgumentType.NUMBER,
+                                defaultValue: "100",
+                            },
+                        },
+                    },
+                    {
+                        opcode: "change_vchan_volume",
+                        blockType: Scratch.BlockType.COMMAND,
+                        text: Scratch.translate("change player [PEER] voice volume by [STEPS]"),
+                        arguments: {
+                            PEER: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "ID",
+                            },
+                            STEPS: {
+                                type: Scratch.ArgumentType.NUMBER,
+                                defaultValue: "10",
+                            },
+                        },
+                    },
+                    "---",
+                    {
+                        blockType: Scratch.BlockType.LABEL,
+                        text: Scratch.translate("🗺️ X coordinate"),
+                    },
+                    {
+                        opcode: "get_vchan_x",
+                        blockType: Scratch.BlockType.REPORTER,
+                        text: Scratch.translate("player [PEER] voice x position"),
+                        arguments: {
+                            PEER: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "ID",
+                            },
+                        },
+                    },
+                    {
+                        opcode: "set_vchan_x",
+                        blockType: Scratch.BlockType.COMMAND,
+                        text: Scratch.translate("set player [PEER] voice x position to [X]"),
+                        arguments: {
+                            PEER: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "ID",
+                            },
+                            X: {
+                                type: Scratch.ArgumentType.NUMBER,
+                                defaultValue: "0",
+                            },
+                        },
+                    },
+                    {
+                        opcode: "change_vchan_x",
+                        blockType: Scratch.BlockType.COMMAND,
+                        text: Scratch.translate("change player [PEER] voice x position by [STEPS]"),
+                        arguments: {
+                            PEER: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "ID",
+                            },
+                            STEPS: {
+                                type: Scratch.ArgumentType.NUMBER,
+                                defaultValue: "10",
+                            },
+                        },
+                    },
+                    "---",
+                    {
+                        blockType: Scratch.BlockType.LABEL,
+                        text: Scratch.translate("🗺️ Y coordinate"),
+                    },
+                    {
+                        opcode: "get_vchan_y",
+                        blockType: Scratch.BlockType.REPORTER,
+                        text: Scratch.translate("player [PEER] voice y position"),
+                        arguments: {
+                            PEER: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "ID",
+                            },
+                        },
+                    },
+                    {
+                        opcode: "set_vchan_y",
+                        blockType: Scratch.BlockType.COMMAND,
+                        text: Scratch.translate("set player [PEER] voice y position to [Y]"),
+                        arguments: {
+                            PEER: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "ID",
+                            },
+                            Y: {
+                                type: Scratch.ArgumentType.NUMBER,
+                                defaultValue: "0",
+                            },
+                        },
+                    },
+                    {
+                        opcode: "change_vchan_y",
+                        blockType: Scratch.BlockType.COMMAND,
+                        text: Scratch.translate("change player [PEER] voice y position by [STEPS]"),
+                        arguments: {
+                            PEER: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "ID",
+                            },
+                            STEPS: {
+                                type: Scratch.ArgumentType.NUMBER,
+                                defaultValue: "10",
+                            },
+                        },
+                    },
+                    "---",
+                    {
+                        blockType: Scratch.BlockType.LABEL,
+                        text: Scratch.translate("🗺️ Z coordinate"),
+                    },
+                    {
+                        opcode: "get_vchan_z",
+                        blockType: Scratch.BlockType.REPORTER,
+                        text: Scratch.translate("player [PEER] voice z position"),
+                        arguments: {
+                            PEER: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "ID",
+                            },
+                        },
+                    },
+                    {
+                        opcode: "set_vchan_z",
+                        blockType: Scratch.BlockType.COMMAND,
+                        text: Scratch.translate("set player [PEER] voice z position to [Z]"),
+                        arguments: {
+                            PEER: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "ID",
+                            },
+                            Z: {
+                                type: Scratch.ArgumentType.NUMBER,
+                                defaultValue: "0",
+                            },
+                        },
+                    },
+                    {
+                        opcode: "change_vchan_z",
+                        blockType: Scratch.BlockType.COMMAND,
+                        text: Scratch.translate("change player [PEER] voice z position by [STEPS]"),
+                        arguments: {
+                            PEER: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "ID",
+                            },
+                            STEPS: {
+                                type: Scratch.ArgumentType.NUMBER,
+                                defaultValue: "10",
+                            },
+                        },
+                    },
                 ],
                 menus: {
+                    ordered_menu: {
+                        items: [
+                            { text: Scratch.translate("speed over ordered messages"), value: "false" },
+                            { text: Scratch.translate("order over speedy messages"), value: "true" },
+                        ]
+                    },
                     verbose_levels: {
                         items: [
                             { text: Scratch.translate("nothing"), value: "0" },
@@ -2742,7 +3168,12 @@
         }
 
         set_verbose(args) {
-            if (this.conn_builder) this.conn_builder.logs = Scratch.Cast.toNumber(args.LEVEL);
+            if (this.conn_builder) {
+                callbacks.set_debug_level(Scratch.Cast.toNumber(args.LEVEL));
+                this.conn_builder.logs = Scratch.Cast.toNumber(args.LEVEL);
+                this.net.verbose_logs = Scratch.Cast.toNumber(args.LEVEL) > 2;
+                this.verbose_logs = Scratch.Cast.toNumber(args.LEVEL) > 2;
+            }
         }
 
         auth_with_token(args) {
@@ -2752,8 +3183,15 @@
             };
         }
 
+        auth_with_name(args) {
+            if (this.conn_builder) this.conn_builder.auth = {
+                mode: "name",
+                name: Scratch.Cast.toString(args.USERNAME),
+            };
+        }
+
         auth_with_cookie() {
-            throw new Error("Not implemented");
+            throw new Error("Not implemented on the server yet");
 
             // TODO
             if (this.conn_builder) this.conn_builder.auth = { mode: "cookie" };
@@ -2809,17 +3247,16 @@
             if (util.stackFrame.undo_conn_builder) {
                 util.stackFrame.undo_conn_builder = false;
                 const builder = util.stackFrame.conn_builder;
-
-                // Validate
                 if (!builder.server_url) return alert('No game server address was specified. Please use the "using game server" block.');
-                if (!builder.auth) return alert('No authentication mechanism was specified. Please use an "authenticate game server ..." block.');
 
                 // Clean up
                 util.stackFrame.conn_builder = undefined;
                 this.conn_builder = undefined;
 
+                // Generate a keypair
+                if (!mikedevcl5_extension.encryption.hasKeyPair()) await mikedevcl5_extension.encryption.generateKeyPair();
+
                 // Do a thing
-                console.log("Creating a connection handler using options:", builder);
                 return this.initialize(builder);
 
             } else {
@@ -2918,32 +3355,25 @@
 
             callbacks.bind("onpeerdisconnect", (peer) => {
                 this.last_disconnected = peer;
-                Scratch.vm.runtime.startHats("mikedevcl5_on_peer_left", {
-                    ID: peer
-                })
+                Scratch.vm.runtime.startHats("mikedevcl5_on_peer_left")
             })
 
-            callbacks.bind("onring", (peer) => {
-                Scratch.vm.runtime.startHats("mikedevcl5_when_peer_rings", {
-                    ID: peer
-                })
+            callbacks.bind("onring", () => {
+                Scratch.vm.runtime.startHats("mikedevcl5_when_peer_rings")
             })
 
-            callbacks.bind("gmsg", (_, channel, __) => {
-                Scratch.vm.runtime.startHats('mikedevcl5_on_broadcast_message', {
-                    CHANNEL: channel
-                });
+            callbacks.bind("gmsg", () => {
+                Scratch.vm.runtime.startHats('mikedevcl5_on_broadcast_message');
             })
 
-            callbacks.bind("pmsg", (peer, channel, _) => {
-                Scratch.vm.runtime.startHats('mikedevcl5_on_private_message', {
-                    PEER: peer,
-                    CHANNEL: channel
-                });
+            callbacks.bind("pmsg", () => {
+                Scratch.vm.runtime.startHats('mikedevcl5_on_private_message');
             })
 
             callbacks.bind("onerror", ({peer, err}) => {
-                peer.reconnect();
+                this.lastErrorMessage = err;
+                this.lastPeerError = peer.peer;
+                Scratch.vm.runtime.startHats('mikedevcl5_on_player_session_error');
             })
 
             return new Promise(async (resolve, reject) => {
@@ -2958,23 +3388,30 @@
                         this.emitMessage("KEEPALIVE", null);
                     }
 
-                    if (args.auth.mode == "token") {
-                        this.emitMessage("INIT", {
-                            token: args.auth.token,
-                            name: "dummy",
-                            pubkey: this.encryption.publicKey,
-                        });
-                    } else if (args.auth.mode == "cookie") {
-                        this.emitMessage("INIT", {
-                            name: "dummy",
-                            pubkey: this.encryption.publicKey,
-                        });
-                    } else {
-                        throw new Error("Unknown authentication mode: " + args.auth.mode);
+                    switch (args.auth.mode) {
+                        case "token":
+                            this.emitMessage("INIT", {
+                                token: args.auth.token,
+                                pubkey: this.encryption.publicKey,
+                            });
+                            break;
+                        case "cookie":
+                            this.emitMessage("INIT", {
+                                pubkey: this.encryption.publicKey,
+                            });
+                            break;
+                        case "name":
+                            this.emitMessage("INIT", {
+                                token: "let me in",
+                                username: args.auth.name,
+                                pubkey: this.encryption.publicKey,
+                            });
+                            break;
+                        default:
+                            throw new Error("Unknown authentication mode: " + args.auth.mode);
                     }
 
                     callbacks.call("on_server_connect");
-
                     resolve();
                 }
 
@@ -3072,7 +3509,7 @@
                 case "KEEPALIVE_ACK":
                     setTimeout(() => {
                         if (this.conn && this.conn.readyState === this.conn.OPEN) {
-                            console.log("Connection was kept alive.");
+                            if (args.log && args.log > 2) console.log("Connection was kept alive.");
                             this.emitMessage("KEEPALIVE", null);
                         }
                     }, args.keepalive.delay * 1000);
@@ -3081,6 +3518,9 @@
                 case "WARNING":
                     alert(payload);
                     break;
+
+                case "MANAGE_ACK":
+                    callbacks.call("management", payload);
                 
                 case "VIOLATION":
                     alert(payload);
@@ -3114,6 +3554,14 @@
 
         is_session_connected() {
             return this.net.is_connected();
+        }
+
+        get_client_error() {
+            return Scratch.Cast.toString(this.lastErrorMessage);
+        }
+
+        get_client_error_peer() {
+            return Scratch.Cast.toString(this.lastPeerError);
         }
 
         my_ID() {
@@ -3178,6 +3626,10 @@
             })
         }
 
+        is_lobby_host() {
+            return this.mode == "host" && this.lobbyhost === this.id;
+        }
+
         async init_host_mode({ LOBBY, PEERS, PASSWORD, LOCK, RELAY }) {
             return new Promise((resolve) => {
                 if ((!this.conn) || this.conn.readyState !== this.conn.OPEN) {
@@ -3204,6 +3656,54 @@
             })
         }
 
+        async set_lock_flag({LOCK}) {
+            if (!this.conn) return;
+            this.emitMessage({opcode: "MANAGE_LOBBY", payload: {method: Scratch.Cast.toBoolean(LOCK) ? "lock" : "unlock"}});
+            return new Promise((resolve) => {
+                callbacks.bind("management", (result) => {
+                    callbacks.unbind("management", "*");
+                    if (this.verbose_logs) console.log("Set lock flag result:", result);
+                    resolve();
+                })
+            })
+        }
+
+        async set_player_limit_value({PEERS}) {
+            if (!this.conn) return;
+            this.emitMessage({opcode: "MANAGE_LOBBY", payload: {method: "change_max_players", args: Scratch.Cast.toNumber(PEERS)}});
+            return new Promise((resolve) => {
+                callbacks.bind("management", (result) => {
+                    callbacks.unbind("management", "*");
+                    if (this.verbose_logs) console.log("Set player limit result:", result);
+                    resolve();
+                })
+            })
+        }
+
+        async set_password_value({PASSWORD}) {
+            if (!this.conn) return;
+            this.emitMessage({opcode: "MANAGE_LOBBY", payload: {method: "change_password", args: Scratch.Cast.toString(PASSWORD)}});
+            return new Promise((resolve) => {
+                callbacks.bind("management", (result) => {
+                    callbacks.unbind("management", "*");
+                    if (this.verbose_logs) console.log("Set lobby password result:", result);
+                    resolve();
+                })
+            })
+        }
+
+        async kick_peer_from_lobby({PEER}) {
+            if (!this.conn) return;
+            this.emitMessage({opcode: "MANAGE_LOBBY", payload: {method: "kick", args: Scratch.Cast.toString(PEER)}});
+            return new Promise((resolve) => {
+                callbacks.bind("management", (result) => {
+                    callbacks.unbind("management", "*");
+                    if (this.verbose_logs) console.log("Kick peer result:", result);
+                    resolve();
+                })
+            })
+        }
+
         async init_peer_mode({ LOBBY, PASSWORD }) {
             return new Promise((resolve) => {
                 if ((!this.conn) || this.conn.readyState !== this.conn.OPEN) {
@@ -3225,6 +3725,14 @@
                     resolve();
                 })
             })
+        }
+
+        close_lobby() {
+            throw new Error("Not implemented on the server yet");
+        }
+
+        transfer_ownership({PEER}) {
+            throw new Error("Not implemented on the server yet");
         }
 
         get_new_peer() {
@@ -3257,6 +3765,10 @@
 
         new_dchan({ CHANNEL, PEER, ORDERED }) {
             this.net.open_data_channel(Scratch.Cast.toString(PEER), Scratch.Cast.toString(CHANNEL), Scratch.Cast.toBoolean(ORDERED));
+        }
+
+        on_new_dchan({CHANNEL, PEER}) {
+            return this.net.does_peer_have_channel(Scratch.Cast.toString(PEER), Scratch.Cast.toString(CHANNEL));
         }
 
         close_dchan({ CHANNEL, PEER }) {
@@ -3336,6 +3848,58 @@
 
         answer_vchan({ PEER }) {
             this.net.answer_call(Scratch.Cast.toString(PEER));
+        }
+
+        decline_vchan({PEER}) {
+            this.net.decline_call(Scratch.Cast.toString(PEER));
+        }
+
+        get_vchan_x({PEER}) {
+            return Scratch.Cast.toNumber(this.net.get_call_x(Scratch.Cast.toString(PEER)));
+        }
+
+        get_vchan_y({PEER}) {
+            return Scratch.Cast.toNumber(this.net.get_call_y(Scratch.Cast.toString(PEER)));
+        }
+
+        get_vchan_z({PEER}) {
+            return Scratch.Cast.toNumber(this.net.get_call_z(Scratch.Cast.toString(PEER)));
+        }
+
+        set_vchan_x({PEER, X}) {
+            this.net.set_call_x(Scratch.Cast.toString(PEER), Scratch.Cast.toNumber(X));
+        }
+
+        set_vchan_y({PEER, Y}) {
+            this.net.set_call_y(Scratch.Cast.toString(PEER), Scratch.Cast.toNumber(Y));
+        }
+
+        set_vchan_z({PEER, Z}) {
+            this.net.set_call_z(Scratch.Cast.toString(PEER), Scratch.Cast.toNumber(Z));
+        }
+
+        change_vchan_x({PEER, STEPS}) {
+            this.net.change_call_x(Scratch.Cast.toString(PEER), Scratch.Cast.toNumber(STEPS));
+        }
+
+        change_vchan_y({PEER, STEPS}) {
+            this.net.change_call_y(Scratch.Cast.toString(PEER), Scratch.Cast.toNumber(STEPS));
+        }
+
+        change_vchan_z({PEER, STEPS}) {
+            this.net.change_call_z(Scratch.Cast.toString(PEER), Scratch.Cast.toNumber(STEPS));
+        }
+
+        get_vchan_volume({PEER}) {
+            return Scratch.Cast.toNumber(this.net.get_call_volume(Scratch.Cast.toString(PEER)));
+        }
+
+        set_vchan_volume({PEER, VOLUME}) {
+            this.net.set_call_volume(Scratch.Cast.toString(PEER), Scratch.Cast.toNumber(VOLUME));
+        }
+
+        change_vchan_volume({PEER, STEPS}) {
+            this.net.change_call_volume(Scratch.Cast.toString(PEER), Scratch.Cast.toNumber(STEPS));
         }
 
         make_global_networked_list({ LIST, CHANNEL, ID }, util) {
@@ -3457,13 +4021,27 @@
                 delete this.var_net_ids[ID];
             });
         }
+
+        when_peer_rings({PEER}) {
+            return this.net.is_other_peer_connected(Scratch.Cast.toString(PEER));
+        }
+
+        on_broadcast_message({CHANNEL}) {
+            return this.net.globalChannelData.has(Scratch.Cast.toString(CHANNEL));
+        }
+
+        on_private_message({PEER, CHANNEL}) {
+            return this.net.does_peer_have_channel(Scratch.Cast.toString(PEER), Scratch.Cast.toString(CHANNEL));
+        }
+
+        on_peer_left({PEER}) {
+            // TODO: this isn't multi-thread compatable.
+            return this.net.last_disconnected == Scratch.Cast.toString(PEER);
+        }
     }
 
     // Initialize extension
     const mikedevcl5_extension = new CloudLink5();
-
-    // Generate a keypair
-    await mikedevcl5_extension.encryption.generateKeyPair();
 
     // Check if lists/variables need to be re-blessed or removed from the tracker
     Scratch.vm.runtime.on("BEFORE_EXECUTE", () => {

@@ -505,6 +505,13 @@
                     break;
             }
 
+            let tracker = this.networkUpdateTracker[classtype].get(id);
+            if (tracker.current) {
+                tracker.current = false;
+                tracker.last = true;
+                return;
+            }
+            
             callbacks.call(callback.reset, proxy);
         }
 
@@ -637,11 +644,18 @@
             if (tracker.current) {
                 tracker.current = false;
                 tracker.last = true;
-                tracker.proxy._monitorUpToDate = false;
+                return;
+            
             } else {
-
+                if (tracker.last) {
+                    tracker.last = false;
+                    return;
+                }
+                
                 let eventType;
-                if (property === "length") {
+                if (property === "_monitorUpToDate") {
+                    eventType = "set";
+                } else if (property === "length") {
                     eventType = "length";
                 } else if (!isNaN(property)) {
                     if (property < target.length) {
@@ -653,24 +667,12 @@
 
                 switch (eventType) {
                     case "set":
-                        if (tracker.last) {
-                            tracker.last = false;
-                            return;
-                        }
                         callbacks.call(events.set, { property, value });
                         break;
                     case "replace":
-                        if (tracker.last) {
-                            tracker.last = false;
-                            return;
-                        }
                         callbacks.call(events.replace, { property, value });
                         break;
                     case "length":
-                        if (tracker.last) {
-                            tracker.last = false;
-                            return;
-                        }
                         callbacks.call(events.length, value);
                         break;
                     default:
@@ -994,7 +996,6 @@
             this.id;
             this.can_reconnect = false;
             this.data_connections = new Map();
-            this.peer_usernames = new Map();
             this.voice_connections = new Map();
             this.newest_connected = "";
             this.last_disconnected = "";
@@ -1226,7 +1227,6 @@
                 if (conn.label === "default") {
                     this.last_disconnected = conn.peer;
                     this.data_connections.delete(conn.peer);
-                    this.peer_usernames.delete(conn.peer);
                     if (this.voice_connections.has(conn.peer)) {
                         this.voice_connections.get(conn.peer).call.close();
                     }
@@ -1293,7 +1293,7 @@
             });
             this.peer.on("error", (err) => {
                 console.log("Peer error: " + err);
-                callbacks.call("onerror", {peer, err});
+                callbacks.call("onerror", {peer: this.peer, err});
             });
         }
 
@@ -1301,14 +1301,13 @@
          * Establishes a data connection to a peer with the specified ID.
          *
          * @param {string} ID - The ID of the peer to connect to.
-         * @param {string} username - The username of the peer to label the connection.
          * @returns {void}
          *
          * The function checks if the peer is already connected or if a connection
          * already exists. If not, it initiates a new connection with default settings
          * and sets up event handlers to manage the connection lifecycle.
          */
-        connect_to_peer(ID, username) {
+        connect_to_peer(ID) {
             if (!this.is_connected()) return;
             if (this.data_connections.has(ID)) return;
             const conn = this.peer.connect(ID, {
@@ -1316,7 +1315,6 @@
                 reliable: true,
             });
             this.data_connections.set(conn.peer, conn);
-            this.peer_usernames.set(ID, username);
             conn.idCounter = 2;
             conn.channels = new Map();
             this.handle_data_connection(conn);
@@ -1477,7 +1475,10 @@
             if (!this.peer) return;
             this.can_reconnect = false;
             this.peer.destroy();
+            this.disconnect_all_peers();
+        }
 
+        disconnect_all_peers() {
             // Close all data connections
             this.data_connections.forEach((conn) => {
                 if (conn.peerConnection) conn.peerConnection.close();
@@ -1490,7 +1491,6 @@
 
             // Cleanup
             this.data_connections.clear();
-            this.peer_usernames.clear();
             this.voice_connections.clear();
         }
 
@@ -1957,22 +1957,13 @@
             if (!this.data_connections.has(peer)) return [];
             return Array.from(this.data_connections.get(peer).channels.keys());
         }
-
-        /**
-         * Retrieves the username of a peer by their ID.
-         *
-         * @param {string} peer - The ID of the peer to retrieve the username for.
-         * @returns {string} The username associated with the peer, or an empty string if the peer does not exist or has no username.
-         */
-        get_peer_username(peer) {
-            return this.peer_usernames.has(peer) ? this.peer_usernames.get(peer) : "";
-        }
     }
 
     class CloudLink5 {
         constructor() {
             this.encryption = new Encryption();
             this.net = new PeerJS_Helper();
+            this.peer_usernames = new Map();
             this.ice_servers = [];
             this.conn_builder = {};
             this.conn = null;
@@ -2415,9 +2406,8 @@
                     {
                         opcode: "transfer_ownership",
                         blockType: Scratch.BlockType.COMMAND,
-                        hideFromPalette: true,
                         text: Scratch.translate(
-                            "(NOT IMPLEMENTED) transfer ownership of the lobby to [PEER]"
+                            "transfer ownership of the lobby to [PEER]"
                         ),
                         arguments: {
                             PEER: {
@@ -2429,9 +2419,8 @@
                     {
                         opcode: "close_lobby",
                         blockType: Scratch.BlockType.COMMAND,
-                        hideFromPalette: true,
                         text: Scratch.translate(
-                            "(NOT IMPLEMENTED) close the lobby and destroy session"
+                            "close lobby"
                         ),
                     },
                     "---",
@@ -3390,17 +3379,16 @@
             })
 
             callbacks.bind("onerror", ({peer, err}) => {
-                this.lastErrorMessage = err;
-                this.lastPeerError = peer;
+                this.lastErrorMessage = err.toString();
+                this.lastPeerError = peer._lastServerId;
                 Scratch.vm.runtime.startHats('mikedevcl5_on_player_session_error');
-
-                if (err.includes("Error: Could not connect to peer ")) {
-
-                    let peerId = extractPeerIdFromErrorMessage(err);
-                    console.log(peerId);
-
+                if (err.toString().includes("Error: Could not connect to peer ")) {
+                    if (this.verbose_logs) console.log("Attempting to reconnect to peer", peer._lastServerId, "in a second from now...");
+                    this.net.disconnect_peer(peer._lastServerId);
+                    setTimeout(() => {
+                        this.net.connect_to_peer(peer._lastServerId, this.get_peer_username(peer._lastServerId));
+                    }, 1000);    
                 }
-
             })
 
             return new Promise(async (resolve, reject) => {
@@ -3464,6 +3452,7 @@
                     this.newest_connected = "";
                     this.last_disconnected = "";
                     this.relay_peer = "";
+                    this.peer_usernames.clear();
 
                     callbacks.call("on_server_disconnect");
                     Scratch.vm.runtime.startHats("mikedevcl5_on_disconnect");
@@ -3504,11 +3493,13 @@
                     if (payload.pubkey) {
                         await this.encryption.deriveSharedKey(payload.pubkey, payload.user_id);
                     }
+                    this.peer_usernames.set(payload.user_id, payload.username);
                     this.net.connect_to_peer(payload.user_id, payload.username);
                     break;
 
                 case "PEER_LEFT":
                     this.net.disconnect_peer(payload);
+                    this.peer_usernames.delete(payload);
                     break;
 
                 case "NEW_LOBBY":
@@ -3517,13 +3508,14 @@
                     }
                     break;
 
-                case "LOBBY_CLOSE":
-                    console.log("The lobby was closed.");
-                    this.destroy();
+                case "LOBBY_CLOSED":
+                    alert("The lobby was closed.");
+                    this.net.disconnect_all_peers();
                     break;
 
                 case "NEW_HOST":
-                    this.lobbyhost = payload;
+                    this.peer_usernames.set(payload.user_id, payload.username);
+                    this.lobbyhost = payload.user_id;
                     break;
 
                 case "JOIN_ACK":
@@ -3550,6 +3542,7 @@
 
                 case "MANAGE_ACK":
                     callbacks.call("management", payload);
+                    break;
                 
                 case "VIOLATION":
                     alert(payload);
@@ -3691,7 +3684,7 @@
 
         async set_lock_flag({LOCK}) {
             if (!this.conn) return;
-            this.emitMessage({opcode: "MANAGE_LOBBY", payload: {method: Scratch.Cast.toBoolean(LOCK) ? "lock" : "unlock"}});
+            this.emitMessage("MANAGE_LOBBY", {method: Scratch.Cast.toBoolean(LOCK) ? "lock" : "unlock"});
             return new Promise((resolve) => {
                 callbacks.bind("management", (result) => {
                     callbacks.unbind("management", "*");
@@ -3703,7 +3696,7 @@
 
         async set_player_limit_value({PEERS}) {
             if (!this.conn) return;
-            this.emitMessage({opcode: "MANAGE_LOBBY", payload: {method: "change_max_players", args: Scratch.Cast.toNumber(PEERS)}});
+            this.emitMessage("MANAGE_LOBBY", {method: "change_max_players", args: Scratch.Cast.toNumber(PEERS)});
             return new Promise((resolve) => {
                 callbacks.bind("management", (result) => {
                     callbacks.unbind("management", "*");
@@ -3715,7 +3708,7 @@
 
         async set_password_value({PASSWORD}) {
             if (!this.conn) return;
-            this.emitMessage({opcode: "MANAGE_LOBBY", payload: {method: "change_password", args: Scratch.Cast.toString(PASSWORD)}});
+            this.emitMessage("MANAGE_LOBBY", {method: "change_password", args: Scratch.Cast.toString(PASSWORD)});
             return new Promise((resolve) => {
                 callbacks.bind("management", (result) => {
                     callbacks.unbind("management", "*");
@@ -3727,7 +3720,7 @@
 
         async kick_peer_from_lobby({PEER}) {
             if (!this.conn) return;
-            this.emitMessage({opcode: "MANAGE_LOBBY", payload: {method: "kick", args: Scratch.Cast.toString(PEER)}});
+            this.emitMessage("MANAGE_LOBBY", {method: "kick", args: Scratch.Cast.toString(PEER)});
             return new Promise((resolve) => {
                 callbacks.bind("management", (result) => {
                     callbacks.unbind("management", "*");
@@ -3760,12 +3753,28 @@
             })
         }
 
-        close_lobby() {
-            throw new Error("Not implemented on the server yet");
+        async close_lobby() {
+            if (!this.conn) return;
+            this.emitMessage("MANAGE_LOBBY", {method: "close_lobby"});
+            return new Promise((resolve) => {
+                callbacks.bind("management", (result) => {
+                    callbacks.unbind("management", "*");
+                    if (this.verbose_logs) console.log("Close lobby result:", result);
+                    resolve();
+                })
+            })
         }
 
-        transfer_ownership({PEER}) {
-            throw new Error("Not implemented on the server yet");
+        async transfer_ownership({PEER}) {
+            if (!this.conn) return;
+            this.emitMessage("MANAGE_LOBBY", {method: "transfer_ownership", args: Scratch.Cast.toString(PEER)});
+            return new Promise((resolve) => {
+                callbacks.bind("management", (result) => {
+                    callbacks.unbind("management", "*");
+                    if (this.verbose_logs) console.log("Transfer ownership of lobby result:", result);
+                    resolve();
+                })
+            })
         }
 
         get_new_peer() {
@@ -3780,8 +3789,9 @@
             return JSON.stringify(this.net.all_connected_peers());
         }
 
-        get_peer_username({ PEER }) {
-            return this.net.get_peer_username(Scratch.Cast.toString(PEER));
+        get_peer_username({ ID }) {
+            const peer = Scratch.Cast.toString(ID);
+            return this.net.is_other_peer_connected(peer) && this.peer_usernames.has(peer) ? this.peer_usernames.get(peer) : "";
         }
 
         get_peer_channels({ PEER }) {

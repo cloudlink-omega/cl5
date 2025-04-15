@@ -263,7 +263,6 @@
             /* 
             metadata = {
                 id: string,
-                type: "list" | "var",
                 class: "global" | "local" | "clone",
                 target: 0 | string
             }
@@ -283,8 +282,6 @@
                 default:
                     throw new Error("Unhandled class type.");
             }
-
-            console.log(proxy);
             
             // If the variable is not blessed, return
             if ((!proxy) || (!proxy.bless)) return;
@@ -593,7 +590,6 @@
 
             let metadata = {
                 id: myVar.id,
-                type: "var",
                 class: classtype
                 // target: 0 | string
             }
@@ -664,7 +660,6 @@
 
             let metadata = {
                 id: myList.id,
-                type: "list",
                 class: classtype
                 // target: 0 | string
             }

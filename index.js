@@ -60,6 +60,17 @@
         );
     }
 
+
+    function extractPeerIdFromErrorMessage(err) {
+        const delimiter = "Error: Could not connect to peer ";
+        const index = err.indexOf(delimiter);
+        if (index !== -1) {
+            return str.substr(index + delimiter.length);
+        } else {
+            return;
+        }
+    }
+
     // Helper function for parsing custom PeerJS server URLs.
     function parsePeerJSURL(wsUrl) {
         try {
@@ -1084,7 +1095,7 @@
                 "Channel " + chan.label + " error with peer " + conn.peer + ":",
                 err
             );
-            callbacks.call("onerror", err);
+            callbacks.call("onerror", {peer: conn.peer, err});
         }
 
         /**
@@ -1282,6 +1293,7 @@
             });
             this.peer.on("error", (err) => {
                 console.log("Peer error: " + err);
+                callbacks.call("onerror", {peer, err});
             });
         }
 
@@ -1548,6 +1560,7 @@
             if (!this.does_peer_have_channel(ID, CHANNEL)) return;
             const chan = this.data_connections.get(ID).channels.get(CHANNEL).chan;
             chan.close();
+            this.data_connections.get(ID).channels.delete(CHANNEL);
         }
 
         /**
@@ -1968,6 +1981,7 @@
             this.lastErrorMessage = "";
             this.lastPeerError = "";
             this.mode = "";
+            this.relay_peer = "";
             this.lobbylist = [];
             this.lobbyinfo = {};
             this.var_net_ids = {};
@@ -2243,6 +2257,11 @@
                     {
                         blockType: Scratch.BlockType.LABEL,
                         text: Scratch.translate("🕹️ Lobbies"),
+                    },
+                    {
+                        opcode: "get_relay_peer",
+                        blockType: Scratch.BlockType.REPORTER,
+                        text: Scratch.translate("relay peer ID"),
                     },
                     {
                         opcode: "lobby_host",
@@ -3372,8 +3391,16 @@
 
             callbacks.bind("onerror", ({peer, err}) => {
                 this.lastErrorMessage = err;
-                this.lastPeerError = peer.peer;
+                this.lastPeerError = peer;
                 Scratch.vm.runtime.startHats('mikedevcl5_on_player_session_error');
+
+                if (err.includes("Error: Could not connect to peer ")) {
+
+                    let peerId = extractPeerIdFromErrorMessage(err);
+                    console.log(peerId);
+
+                }
+
             })
 
             return new Promise(async (resolve, reject) => {
@@ -3436,6 +3463,7 @@
                     this.lobbyinfo = {};
                     this.newest_connected = "";
                     this.last_disconnected = "";
+                    this.relay_peer = "";
 
                     callbacks.call("on_server_disconnect");
                     Scratch.vm.runtime.startHats("mikedevcl5_on_disconnect");
@@ -3467,6 +3495,7 @@
                     break;
 
                 case "RELAY":
+                    this.relay_peer = payload;
                     this.net.connect_to_peer(payload, "relay");
                     break;
 
@@ -3574,6 +3603,10 @@
 
         get_client_mode() {
             return this.mode;
+        }
+
+        get_relay_peer() {
+            return this.relay_peer;
         }
 
         lobby_host() {

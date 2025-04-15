@@ -273,7 +273,7 @@
 
             switch (metadata.class) {
                 case "global":
-                    proxy = vm.runtime.targets[0].variables[metadata.id];
+                    proxy = vm.runtime.targets[metadata.target].variables[metadata.id];
                     break;
                 case "local":
                 case "clone":

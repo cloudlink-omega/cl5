@@ -1839,6 +1839,7 @@
                     .getUserMedia({ audio: true })
                     .then(async(localStream) => {
                         if (!this.localStreams.has(ID)) this.localStreams.set(ID, localStream);
+                        build_audio_flow(ID, localStream);
                         if (this.verbose_logs) console.log("Obtained local stream: ", localStream);
                         if (this.verbose_logs) console.log("Answering call from peer", ID);
                         call.answer(localStream);
@@ -1882,53 +1883,7 @@
             }
 
             call.on("stream", (remoteStream) => {
-                if (this.ringing_peers.has(id)) this.ringing_peers.delete(id);
-
-                // Initialize source
-                const source = this.audioContext.createMediaStreamSource(remoteStream);
-                if (this.verbose_logs) console.log("Initialized Media Stream Source", source);
-                
-                // Initialize panner
-                const panner = this.audioContext.createPanner();
-                panner.panningModel = "HRTF";
-                panner.distanceModel = "inverse";
-                panner.refDistance = 1;
-                panner.maxDistance = 10000;
-                panner.rolloffFactor = 1;
-                panner.coneInnerAngle = 360;
-                panner.coneOuterAngle = 0;
-                panner.coneOuterGain = 0;
-                panner.positionX.value = 0;
-                panner.positionY.value = 0;
-                panner.positionZ.value = 0;
-                if (this.verbose_logs) console.log("Initialized Panner", panner);
-
-                // Initialize gain
-                const gain = this.audioContext.createGain();
-                gain.gain.value = 1; 
-                if (this.verbose_logs) console.log("Initialized Gain", gain);
-
-                // Connect elements
-                source.connect(panner);
-                panner.connect(gain);
-                gain.connect(this.audioContext.destination);
-
-                // Store elements
-                this.voice_connections.set(id, {
-                    call: call,
-                    audio: remoteStream,
-                    gain,
-                    panner
-                });
-                if (this.verbose_logs) console.log("Stored elements for call with peer", id, " - ", this.voice_connections.get(id));
-
-                // Log to console
-                if (this.verbose_logs) console.log("Opening audio stream for call with peer", id);
-
-                if (this.audioContext.state === "suspended") {
-                    if (this.verbose_logs) console.log("Resuming audio context");
-                    this.audioContext.resume();
-                }
+                build_audio_flow(id, remoteStream);
             });
 
             call.on("close", () => {
@@ -1947,6 +1902,56 @@
             call.on("error", (err) => {
                 console.warn("Call with peer " + id + " error: " + err);
             });
+        }
+
+        build_audio_flow(id, stream) {
+            if (this.ringing_peers.has(id)) this.ringing_peers.delete(id);
+
+            // Initialize source
+            const source = this.audioContext.createMediaStreamSource(stream);
+            if (this.verbose_logs) console.log("Initialized Media Stream Source", source);
+            
+            // Initialize panner
+            const panner = this.audioContext.createPanner();
+            panner.panningModel = "HRTF";
+            panner.distanceModel = "inverse";
+            panner.refDistance = 1;
+            panner.maxDistance = 10000;
+            panner.rolloffFactor = 1;
+            panner.coneInnerAngle = 360;
+            panner.coneOuterAngle = 0;
+            panner.coneOuterGain = 0;
+            panner.positionX.value = 0;
+            panner.positionY.value = 0;
+            panner.positionZ.value = 0;
+            if (this.verbose_logs) console.log("Initialized Panner", panner);
+
+            // Initialize gain
+            const gain = this.audioContext.createGain();
+            gain.gain.value = 1; 
+            if (this.verbose_logs) console.log("Initialized Gain", gain);
+
+            // Connect elements
+            source.connect(panner);
+            panner.connect(gain);
+            gain.connect(this.audioContext.destination);
+
+            // Store elements
+            this.voice_connections.set(id, {
+                call: call,
+                audio: stream,
+                gain,
+                panner
+            });
+            if (this.verbose_logs) console.log("Stored elements for call with peer", id, " - ", this.voice_connections.get(id));
+
+            // Log to console
+            if (this.verbose_logs) console.log("Opening audio stream for call with peer", id);
+
+            if (this.audioContext.state === "suspended") {
+                if (this.verbose_logs) console.log("Resuming audio context");
+                this.audioContext.resume();
+            }
         }
 
         /**

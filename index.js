@@ -1228,7 +1228,7 @@
             if (this.verbose_logs) console.log(conn.peer, chan.label, data);
             switch (opcode) {
                 case "G_MSG":
-                    this.globalChannelData[chan.label] = payload;
+                    this.globalChannelData.set(chan.label, payload);
                     callbacks.call("gmsg", conn.peer, chan.label, payload);
                     break;
                 case "G_VAR":

@@ -575,17 +575,14 @@
             let myList;
             switch (classtype) {
                 case "global":
-                    console.log("Global list", id, "was reset");
                     myList = vm.runtime.targets[0].variables[id];
                     break;
 
                 case "clone":
-                    console.log("Clone " + element.clone_id + "'s list", id, "was reset");
                     myList = vm.runtime.getTargetById(element.clone_id).variables[id];
                     break;
 
                 case "local":
-                    console.log("Local list", id, "was reset");
                     myList = vm.runtime.getTargetById(element.target_id).variables[id];
                     break;
             }

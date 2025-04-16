@@ -4110,56 +4110,49 @@
             this.netid_meta.set(ID, metadata);
 
             callbacks.bind(netListEvents.length, (data) => {
-                console.log(listname, "length", data, ID);
-
                 this.net.broadcast_message_to_peers({
                     opcode: "G_LIST",
                     payload: data,
                     method: "length",
                     id: ID,
                 }, Scratch.Cast.toString(CHANNEL));
-                
             }, ID);
 
             callbacks.bind(netListEvents.replace, (data) => {
-                console.log(listname, "replace", data, ID);
-
                 this.net.broadcast_message_to_peers({
                     opcode: "G_LIST",
                     payload: data,
                     method: "replace",
                     id: ID,
                 }, Scratch.Cast.toString(CHANNEL));
-
             }, ID);
 
             callbacks.bind(netListEvents.set, (data) => {
-                console.log(listname, "set", data, ID);
-
                 this.net.broadcast_message_to_peers({
                     opcode: "G_LIST",
                     payload: data,
                     method: "set",
                     id: ID,
                 }, Scratch.Cast.toString(CHANNEL));
-
             }, ID);
 
             callbacks.bind(netListEvents.reset, (data) => {
-                console.log(listname, "reset", data, ID);
-
                 this.net.broadcast_message_to_peers({
                     opcode: "G_LIST",
                     payload: data,
                     method: "reset",
                     id: ID,
                 }, Scratch.Cast.toString(CHANNEL));
-
             }, ID);
 
             callbacks.bind(netListEvents.off, () => {
                 this.netid_proxies.delete(ID);
                 this.netid_meta.delete(ID);
+                callbacks.unbind(netListEvents.length, "*");
+                callbacks.unbind(netListEvents.replace, "*");
+                callbacks.unbind(netListEvents.set, "*");
+                callbacks.unbind(netListEvents.reset, "*");
+                callbacks.unbind(netListEvents.off, "*");
             }, ID);
         }
 

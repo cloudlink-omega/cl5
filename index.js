@@ -1802,7 +1802,7 @@
          */
         hangup_call(ID) {
             if (this.voice_connections.has(ID)) {
-                this.voice_connections.get(ID).close();
+                this.voice_connections.get(ID).call.close();
                 this.voice_connections.delete(ID);
             };
 

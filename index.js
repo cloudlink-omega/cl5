@@ -1390,11 +1390,8 @@
                 this.handle_data_connection(conn);
             });
             this.peer.on("call", async (call) => {
-                if (!this.hasMicPerms || this.voice_connections.has(call.peer)) {
-                    call.close();
-                    return;
-                }
                 this.ringing_peers.set(call.peer, call);
+                this.handle_call(call.peer, call);
                 callbacks.call("onring", call.peer);
             });
             this.peer.on("close", () => {
@@ -1767,7 +1764,7 @@
 
             // Redirect the function call if the peer is already ringing
             if (this.ringing_peers.has(ID)) {
-                return await this.answer_call(ID);;
+                return await this.answer_call(ID);
             };
 
             if (!this.hasMicPerms && await Scratch.canRecordAudio()) this.hasMicPerms = true;
@@ -1804,9 +1801,15 @@
          * If a connection exists, it closes the call associated with that peer.
          */
         hangup_call(ID) {
-            if (!this.voice_connections.has(ID)) return;
-            this.voice_connections.get(ID).call.close();
-            this.voice_connections.delete(ID);
+            if (this.voice_connections.has(ID)) {
+                this.voice_connections.get(ID).close();
+                this.voice_connections.delete(ID);
+            };
+
+            if (this.ringing_peers.has(ID)) {
+                this.ringing_peers.get(ID).close();
+                this.voice_connections.delete(ID);
+            };
         }
 
         /**
@@ -1839,11 +1842,9 @@
                     .getUserMedia({ audio: true })
                     .then(async(localStream) => {
                         if (!this.localStreams.has(ID)) this.localStreams.set(ID, localStream);
-                        build_audio_flow(ID, localStream);
                         if (this.verbose_logs) console.log("Obtained local stream: ", localStream);
                         if (this.verbose_logs) console.log("Answering call from peer", ID);
                         call.answer(localStream);
-                        this.handle_call(ID, call);
                     })
                     .catch((e) => {
                         if (this.verbose_logs) console.warn(`Failed to get local stream: ${e}`);
@@ -1856,9 +1857,6 @@
             if (!this.peer) return;
             if (!this.is_other_peer_connected(ID)) return;
             if (!this.ringing_peers.has(ID)) return;
-
-            if (!this.hasMicPerms && await Scratch.canRecordAudio()) this.hasMicPerms = true;
-            if (!this.hasMicPerms) return;
             
             if (this.verbose_logs) console.log("Declining call from peer", ID);
             this.send_message_to_peer({opcode: "DECLINE"}, ID, "default");
@@ -1873,17 +1871,12 @@
          */
         handle_call(id, call) {
 
-            if (!this.audioContext) {
-                this.audioContext = vm.runtime.audioEngine.audioContext;
-                if (!this.audioContext) throw new Error("Audio context not found or not yet initialized!");
-            }
-
             if (!call) {
                 throw new Error("Got undefined call argument!");
             }
 
             call.on("stream", (remoteStream) => {
-                build_audio_flow(id, remoteStream);
+                this.build_audio_flow(id, remoteStream);
             });
 
             call.on("close", () => {
@@ -1905,6 +1898,11 @@
         }
 
         build_audio_flow(id, stream) {
+            if (!this.audioContext) {
+                this.audioContext = vm.runtime.audioEngine.audioContext;
+                if (!this.audioContext) throw new Error("Audio context not found or not yet initialized!");
+            }
+
             if (this.ringing_peers.has(id)) this.ringing_peers.delete(id);
 
             // Initialize source

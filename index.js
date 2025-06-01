@@ -2079,10 +2079,11 @@
             this.encryption = new Encryption();
             this.net = new PeerJS_Helper();
             this.peer_usernames = new Map();
+            this.peer_accountids = new Map();
             this.ice_servers = [];
             this.conn_builder = {};
             this.conn = null;
-            this.id, this.name, this.lobbyhost = "";
+            this.instance_id, this.username, this.user_id, this.lobbyhost = "";
             this.initialized = false;
             this.lastErrorMessage = "";
             this.lastPeerError = "";
@@ -2156,7 +2157,12 @@
                     {
                         opcode: "my_ID",
                         blockType: Scratch.BlockType.REPORTER,
-                        text: Scratch.translate("my player id"),
+                        text: Scratch.translate("my instance id"),
+                    },
+                    {
+                        opcode: "my_ID_account",
+                        blockType: Scratch.BlockType.REPORTER,
+                        text: Scratch.translate("my account id"),
                     },
                     {
                         opcode: "my_Username",
@@ -2285,8 +2291,7 @@
                     },
                     {
                         opcode: "auth_with_cookie",
-                        text: Scratch.translate('(NOT IMPLEMENTED) authenticate game server with cookie'),
-                        hideFromPalette: true,
+                        text: Scratch.translate('authenticate game server with cookie'),
                         blockType: Scratch.BlockType.COMMAND
                     },
                     {
@@ -2515,7 +2520,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         },
                     },
@@ -2528,7 +2533,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         },
                     },
@@ -2564,7 +2569,7 @@
                         arguments: {
                             ID: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         }
                     },
@@ -2586,7 +2591,18 @@
                         arguments: {
                             ID: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
+                            },
+                        }
+                    },
+                    {
+                        opcode: "get_peer_accountid",
+                        blockType: Scratch.BlockType.REPORTER,
+                        text: Scratch.translate("player [ID] account ID"),
+                        arguments: {
+                            ID: {
+                                type: Scratch.ArgumentType.STRING,
+                                defaultValue: "instance ID",
                             },
                         }
                     },
@@ -2597,7 +2613,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         },
                     },
@@ -2608,7 +2624,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         },
                     },
@@ -2619,7 +2635,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         },
                     },
@@ -2640,7 +2656,7 @@
                             },
                             ID: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         }
                     },
@@ -2657,7 +2673,7 @@
                             },
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                             ORDERED: {
                                 menu: "ordered_menu",
@@ -2680,7 +2696,7 @@
                             },
                             ID: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         }
                     },
@@ -2697,7 +2713,7 @@
                             },
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         },
                     },
@@ -2763,7 +2779,7 @@
                             },
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         },
                     },
@@ -2780,7 +2796,7 @@
                             },
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         },
                     },
@@ -2797,7 +2813,7 @@
                             },
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                             CHANNEL: {
                                 type: Scratch.ArgumentType.STRING,
@@ -2850,7 +2866,7 @@
                             },
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                             CHANNEL: {
                                 type: Scratch.ArgumentType.STRING,
@@ -2898,7 +2914,7 @@
                             },
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                             CHANNEL: {
                                 type: Scratch.ArgumentType.STRING,
@@ -2929,7 +2945,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         },
                     },
@@ -2942,7 +2958,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         },
                     },
@@ -2961,7 +2977,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                             MICSTATE: {
                                 type: Scratch.ArgumentType.NUMBER,
@@ -2979,7 +2995,7 @@
                         arguments: {
                             ID: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         },
                     },
@@ -2991,7 +3007,7 @@
                         arguments: {
                             ID: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         },
                     },
@@ -3003,7 +3019,7 @@
                         arguments: {
                             ID: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         },
                     },
@@ -3014,7 +3030,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         },
                     },
@@ -3027,7 +3043,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         },
                     },
@@ -3040,7 +3056,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         },
                     },
@@ -3051,7 +3067,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         },
                     },
@@ -3067,7 +3083,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         },
                     },
@@ -3078,7 +3094,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                             VOLUME: {
                                 type: Scratch.ArgumentType.NUMBER,
@@ -3093,7 +3109,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                             STEPS: {
                                 type: Scratch.ArgumentType.NUMBER,
@@ -3113,7 +3129,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         },
                     },
@@ -3124,7 +3140,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                             X: {
                                 type: Scratch.ArgumentType.NUMBER,
@@ -3139,7 +3155,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                             STEPS: {
                                 type: Scratch.ArgumentType.NUMBER,
@@ -3159,7 +3175,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         },
                     },
@@ -3170,7 +3186,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                             Y: {
                                 type: Scratch.ArgumentType.NUMBER,
@@ -3185,7 +3201,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                             STEPS: {
                                 type: Scratch.ArgumentType.NUMBER,
@@ -3205,7 +3221,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                         },
                     },
@@ -3216,7 +3232,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                             Z: {
                                 type: Scratch.ArgumentType.NUMBER,
@@ -3231,7 +3247,7 @@
                         arguments: {
                             PEER: {
                                 type: Scratch.ArgumentType.STRING,
-                                defaultValue: "ID",
+                                defaultValue: "instance ID",
                             },
                             STEPS: {
                                 type: Scratch.ArgumentType.NUMBER,
@@ -3315,9 +3331,6 @@
         }
 
         auth_with_cookie() {
-            throw new Error("Not implemented on the server yet");
-
-            // TODO
             if (this.conn_builder) this.conn_builder.auth = { mode: "cookie" };
         }
 
@@ -3588,8 +3601,8 @@
 
                     this.conn = undefined;
                     this.mode = "";
-                    this.name = "";
-                    this.id = "";
+                    this.username = "";
+                    this.instance_id = "";
                     this.lobbyhost = "";
                     this.lobbylist = [];
                     this.lobbyinfo = {};
@@ -3597,6 +3610,7 @@
                     this.last_disconnected = "";
                     this.relay_peer = "";
                     this.peer_usernames.clear();
+                    this.peer_accountids.clear();
 
                     callbacks.call("on_server_disconnect");
                     Scratch.vm.runtime.startHats("mikedevcl5_on_disconnect");
@@ -3638,12 +3652,14 @@
                         await this.encryption.deriveSharedKey(payload.pubkey, payload.user_id);
                     }
                     this.peer_usernames.set(payload.user_id, payload.username);
+                    this.peer_accountids.set(payload.user_id, payload.account_id);
                     this.net.connect_to_peer(payload.user_id, payload.username);
                     break;
 
                 case "PEER_LEFT":
                     this.net.disconnect_peer(payload);
                     this.peer_usernames.delete(payload);
+                    this.peer_accountids.delete(payload);
                     break;
 
                 case "NEW_LOBBY":
@@ -3659,6 +3675,7 @@
 
                 case "NEW_HOST":
                     this.peer_usernames.set(payload.user_id, payload.username);
+                    this.peer_accountids.set(payload.user_id, payload.account_id);
                     this.lobbyhost = payload.user_id;
                     break;
 
@@ -3693,9 +3710,9 @@
                     break;
 
                 case "INIT_OK":
-                    this.id = payload.user_id;
-                    this.name = payload.username;
-                    this.developer = payload.dev_id;
+                    this.instance_id = payload.instance_id;
+                    this.user_id = payload.user_id;
+                    this.username = payload.username;
                     
                     let settings = {};
                     settings.config = {};
@@ -3709,7 +3726,7 @@
                     if (args.ice_servers) settings.config.iceServers = args.ice_servers;
                     if (args.logs) settings.debug = args.logs;
 
-                    this.net.create_peer(this.id, settings);
+                    this.net.create_peer(this.instance_id, settings);
                     break;
             }
         }
@@ -3731,11 +3748,15 @@
         }
 
         my_ID() {
-            return this.id;
+            return this.instance_id;
+        }
+
+        my_ID_account() {
+            return this.user_id;
         }
 
         my_Username() {
-            return this.name;
+            return this.username;
         }
 
         get_client_mode() {
@@ -3797,7 +3818,7 @@
         }
 
         is_lobby_host() {
-            return this.mode == "host" && this.lobbyhost === this.id;
+            return this.mode == "host" && this.lobbyhost === this.instance_id;
         }
 
         async init_host_mode({ LOBBY, PEERS, PASSWORD, LOCK, RELAY }) {
@@ -3936,6 +3957,11 @@
         get_peer_username({ ID }) {
             const peer = Scratch.Cast.toString(ID);
             return this.net.is_other_peer_connected(peer) && this.peer_usernames.has(peer) ? this.peer_usernames.get(peer) : "";
+        }
+
+        get_peer_accountid({ ID }) {
+            const peer = Scratch.Cast.toString(ID);
+            return this.net.is_other_peer_connected(peer) && this.peer_accountids.has(peer) ? this.peer_accountids.get(peer) : "";
         }
 
         get_peer_channels({ PEER }) {

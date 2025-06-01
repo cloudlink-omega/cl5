@@ -2157,7 +2157,7 @@
                     {
                         opcode: "my_ID",
                         blockType: Scratch.BlockType.REPORTER,
-                        text: Scratch.translate("my instance ID"),
+                        text: Scratch.translate("my instance id"),
                     },
                     {
                         opcode: "my_ID_account",

@@ -3543,7 +3543,7 @@
                     if (this.verbose_logs) console.log("Attempting to reconnect to peer", peer._lastServerId, "in a second from now...");
                     this.net.disconnect_peer(peer._lastServerId);
                     setTimeout(() => {
-                        this.net.connect_to_peer(peer._lastServerId, this.get_peer_username(peer._lastServerId));
+                        this.net.connect_to_peer(peer._lastServerId);
                     }, 1000);    
                 }
             })
@@ -3643,17 +3643,17 @@
 
                 case "RELAY":
                     this.relay_peer = payload;
-                    this.net.connect_to_peer(payload, "relay");
+                    this.net.connect_to_peer(payload);
                     break;
 
                 case "NEW_PEER":
                 case "PEER_JOIN":
                     if (payload.pubkey) {
-                        await this.encryption.deriveSharedKey(payload.pubkey, payload.user_id);
+                        await this.encryption.deriveSharedKey(payload.pubkey, payload.instance_id);
                     }
-                    this.peer_usernames.set(payload.user_id, payload.username);
-                    this.peer_accountids.set(payload.user_id, payload.account_id);
-                    this.net.connect_to_peer(payload.user_id, payload.username);
+                    this.peer_usernames.set(payload.instance_id, payload.username);
+                    this.peer_accountids.set(payload.instance_id, payload.account_id);
+                    this.net.connect_to_peer(payload.instance_id);
                     break;
 
                 case "PEER_LEFT":
@@ -3674,9 +3674,13 @@
                     break;
 
                 case "NEW_HOST":
-                    this.peer_usernames.set(payload.user_id, payload.username);
-                    this.peer_accountids.set(payload.user_id, payload.account_id);
-                    this.lobbyhost = payload.user_id;
+                    if (payload.pubkey) {
+                        await this.encryption.deriveSharedKey(payload.pubkey, payload.instance_id);
+                    }
+                    this.peer_usernames.set(payload.instance_id, payload.username);
+                    this.peer_accountids.set(payload.instance_id, payload.account_id);
+                    this.lobbyhost = payload.instance_id;
+                    this.net.connect_to_peer(payload.instance_id)
                     break;
 
                 case "JOIN_ACK":
@@ -3711,7 +3715,7 @@
 
                 case "INIT_OK":
                     this.instance_id = payload.instance_id;
-                    this.user_id = payload.user_id;
+                    this.user_id = payload.instance_id;
                     this.username = payload.username;
                     
                     let settings = {};

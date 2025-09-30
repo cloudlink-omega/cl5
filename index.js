@@ -3652,7 +3652,7 @@
                         await this.encryption.deriveSharedKey(payload.pubkey, payload.instance_id);
                     }
                     this.peer_usernames.set(payload.instance_id, payload.username);
-                    this.peer_accountids.set(payload.instance_id, payload.account_id);
+                    this.peer_accountids.set(payload.instance_id, payload.user_id);
                     this.net.connect_to_peer(payload.instance_id);
                     break;
 
@@ -3678,7 +3678,7 @@
                         await this.encryption.deriveSharedKey(payload.pubkey, payload.instance_id);
                     }
                     this.peer_usernames.set(payload.instance_id, payload.username);
-                    this.peer_accountids.set(payload.instance_id, payload.account_id);
+                    this.peer_accountids.set(payload.instance_id, payload.user_id);
                     this.lobbyhost = payload.instance_id;
                     break;
 

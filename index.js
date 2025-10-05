@@ -2770,7 +2770,7 @@
                     "---",
                     {
                         opcode: "on_private_message",
-                        blockType: Scratch.BlockType.EVENT,
+                        blockType: Scratch.BlockType.HAT,
                         text: Scratch.translate(
                             "when I get a message from player [PEER] in channel [CHANNEL]"
                         ),

@@ -1321,7 +1321,7 @@
         handle_data_connection(conn) {
 
             conn.on("open", () => {
-                console.log(`Channel ${conn.label} opened with ${conn.peer.id}`);
+                console.log(`Channel ${conn.label} opened with ${conn.peer}`);
                 this.handle_channel_open(conn, conn);
                 if (conn.label === "default") {
                     this.newest_connected = conn.peer;
@@ -1333,7 +1333,7 @@
             });
 
             conn.on("close", () => {
-                console.log(`Channel ${conn.label} with ${conn.peer.id} closed`);
+                console.log(`Channel ${conn.label} with ${conn.peer} closed`);
                 this.handle_channel_close(conn, conn);
                 if (conn.label === "default") {
                     this.last_disconnected = conn.peer;

@@ -2566,7 +2566,7 @@
                     "---",
                     {
                         opcode: "on_peer_left",
-                        blockType: Scratch.BlockType.EVENT,
+                        blockType: Scratch.BlockType.HAT,
                         isEdgeActivated: false,
                         text: Scratch.translate("when player [ID] disconnects"),
                         arguments: {
@@ -2723,7 +2723,7 @@
                     "---",
                     {
                         opcode: "on_broadcast_message",
-                        blockType: Scratch.BlockType.EVENT,
+                        blockType: Scratch.BlockType.HAT,
                         text: Scratch.translate(
                             "when I get a broadcast in channel [CHANNEL]"
                         ),

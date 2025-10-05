@@ -60,17 +60,6 @@
         );
     }
 
-
-    function extractPeerIdFromErrorMessage(err) {
-        const delimiter = "Error: Could not connect to peer ";
-        const index = err.indexOf(delimiter);
-        if (index !== -1) {
-            return str.substr(index + delimiter.length);
-        } else {
-            return;
-        }
-    }
-
     // Helper function for parsing custom PeerJS server URLs.
     function parsePeerJSURL(wsUrl) {
         try {

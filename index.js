@@ -1284,12 +1284,13 @@
                         newchan.onopen = () => {
                             console.log(`Channel ${label} opened with ${conn.peer}`);
                             this.handle_channel_open(conn, newchan);
-                            callbacks.call("on_chan_open", {peer: conn.peer, channel: label});
+                            callbacks.call("on_chan_open");
                         };
 
                         newchan.onclose = () => {
                             console.log(`Channel ${label} with ${conn.peer} closed`);
                             this.handle_channel_close(conn, newchan);
+                            callbacks.call("on_chan_close");
                         };
 
                         newchan.onerror = (err) => {
@@ -1327,14 +1328,19 @@
         handle_data_connection(conn) {
 
             conn.on("open", () => {
+                console.log(`Channel ${conn.label} opened with ${conn.peer.id}`);
                 this.handle_channel_open(conn, conn);
                 if (conn.label === "default") {
                     this.newest_connected = conn.peer;
                     callbacks.call("onpeerconnect", conn.peer);
+                } else {
+                    
+                    callbacks.call("on_chan_open");
                 }
             });
 
             conn.on("close", () => {
+                console.log(`Channel ${conn.label} with ${conn.peer.id} closed`);
                 this.handle_channel_close(conn, conn);
                 if (conn.label === "default") {
                     this.last_disconnected = conn.peer;
@@ -1343,6 +1349,8 @@
                         this.voice_connections.get(conn.peer).call.close();
                     }
                     callbacks.call("onpeerdisconnect", conn.peer);
+                } else {
+                    callbacks.call("on_chan_close");
                 }
             });
 
@@ -1494,13 +1502,13 @@
                 chan.onopen = () => {
                     console.log(`Channel ${CHANNEL} opened with ${ID}`);
                     this.handle_channel_open(conn, chan);
-                    callbacks.call("on_chan_open", {peer: ID, channel: CHANNEL});
+                    callbacks.call("on_chan_open",);
                 };
 
                 chan.onclose = () => {
                     console.log(`Channel ${CHANNEL} with ${ID} closed`);
                     this.handle_channel_close(conn, chan);
-                    callbacks.call("on_chan_close", {peer: ID, channel: CHANNEL});
+                    callbacks.call("on_chan_close");
                 };
 
                 chan.onerror = (err) => {
@@ -1652,10 +1660,12 @@
          * @returns {boolean} - True if the peer has the channel, false otherwise.
          */
         does_peer_have_channel(ID, CHANNEL) {
-            if (!this.peer) return false;
-            const conn = this.data_connections.get(ID);
-            if (!conn) return false;
-            return conn.channels.has(CHANNEL);
+           if (this.data_connections.has(ID)) {
+                if (this.data_connections.get(peer).channels.has(CHANNEL)) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         /**
@@ -2654,7 +2664,7 @@
                                 type: Scratch.ArgumentType.STRING,
                                 defaultValue: "foobar",
                             },
-                            ID: {
+                            PEER: {
                                 type: Scratch.ArgumentType.STRING,
                                 defaultValue: "instance ID",
                             },
@@ -2694,7 +2704,7 @@
                                 type: Scratch.ArgumentType.STRING,
                                 defaultValue: "foobar",
                             },
-                            ID: {
+                            PEER: {
                                 type: Scratch.ArgumentType.STRING,
                                 defaultValue: "instance ID",
                             },
@@ -3495,6 +3505,14 @@
                 Scratch.vm.runtime.startHats("mikedevcl5_on_peer_left")
             })
 
+            callbacks.bind("on_chan_open", () => {
+                Scratch.vm.runtime.startHats("mikedevcl5_on_new_dchan");
+            })
+
+            callbacks.bind("on_chan_close", () => {
+                Scratch.vm.runtime.startHats("mikedevcl5_on_close_dchan");
+            })
+
             callbacks.bind("onring", () => {
                 Scratch.vm.runtime.startHats("mikedevcl5_when_peer_rings")
             })
@@ -3987,6 +4005,10 @@
             return this.net.does_peer_have_channel(Scratch.Cast.toString(PEER), Scratch.Cast.toString(CHANNEL));
         }
 
+        on_close_dchan({CHANNEL, PEER}) {
+            return !this.net.does_peer_have_channel(Scratch.Cast.toString(PEER), Scratch.Cast.toString(CHANNEL));
+        }
+
         close_dchan({ CHANNEL, PEER }) {
             this.net.close_data_channel(Scratch.Cast.toString(PEER), Scratch.Cast.toString(CHANNEL));
         }
@@ -4337,7 +4359,6 @@
         on_private_message({PEER, CHANNEL}) {
             return this.net.does_peer_have_channel(Scratch.Cast.toString(PEER), Scratch.Cast.toString(CHANNEL));
         }
-
 
         on_peer_left({PEER}) {
             // TODO: this isn't multi-thread compatable.

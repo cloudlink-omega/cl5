@@ -1105,6 +1105,8 @@
             this.ringing_peers = new Map();
             this.localStreams = new Map();
             this.globalChannelData = new Map();
+            this.last_private_message_peer = "";
+            this.last_private_message_channel = "";
         }
 
         /**
@@ -1227,6 +1229,8 @@
                     callbacks.call("glist", conn.peer, chan.label, data);
                     break;
                 case "P_MSG":
+                    this.last_private_message_peer = conn.peer;
+                    this.last_private_message_channel = chan.label;
                     conn.channels.get(chan.label).data = payload;
                     callbacks.call("pmsg", conn.peer, chan.label, payload);
                     break;
@@ -4346,7 +4350,10 @@
         }
 
         on_private_message({PEER, CHANNEL}) {
-            return this.net.does_peer_have_channel(Scratch.Cast.toString(PEER), Scratch.Cast.toString(CHANNEL));
+            const peer_id = Scratch.Cast.toString(PEER);
+            const channel_id = Scratch.Cast.toString(CHANNEL);
+            return this.net.last_private_message_peer === peer_id &&
+                   this.net.last_private_message_channel === channel_id;
         }
 
         on_peer_left({PEER}) {

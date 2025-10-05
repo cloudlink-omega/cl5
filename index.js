@@ -107,8 +107,8 @@
                 if (this.debug > 2) console.log(`Unbound all callbacks for "${name}"`);
                 return;
             }
-            if (!this.calls[name] || !this.calls[name].has(id)) return;
-            this.calls[name].delete(id);
+            if (!this.calls.has(name) || !this.calls.get(name).has(id)) return;
+            this.calls.get(name).delete(id);
             if (this.debug > 2) console.log(`Unbound callback for "${name}" with ID "${id}"`);
         }
 
@@ -121,14 +121,14 @@
          * @throws {TypeError} If the provided callback is not a function.
          */
         bind(name, callback, id = "default") {
-            if (!this.calls[name]) {
-                this.calls[name] = new Map();
+            if (!this.calls.has(name)) {
+                this.calls.set(name, new Map());
             }
             if (typeof callback !== 'function') {
-                if (self.debug > 0) console.error('Callback must be a function');
+                if (this.debug > 0) console.error('Callback must be a function');
                 return;
             }
-            this.calls[name].set(id, callback);
+            this.calls.get(name).set(id, callback);
             if (this.debug > 2) console.log(`Bound callback for "${name}" with ID "${id}"`);
         }
 
@@ -144,24 +144,24 @@
          * if the registered callback is not a map.
          */
         call(name, ...args) {
-            if (!this.calls[name]) {
+            if (!this.calls.has(name)) {
                 if (this.debug > 1) console.warn(`No callbacks registered for "${name}"`);
                 return;
             };
-            if (this.calls[name] === null) {
+            if (this.calls.get(name) === null) {
                 if (this.debug > 1) console.warn(`No callbacks registered for "${name}"`);
                 return;
             }
-            if (this.calls[name].size === 0) {
+            if (this.calls.get(name).size === 0) {
                 if (this.debug > 1) console.warn(`No callbacks registered for "${name}"`);
                 return;
             }
-            if (!(this.calls[name] instanceof Map)) {
-                if (this.debug > 0) console.error("Callback was not a map! Got ", typeof this.calls[name], "instead.");
+            if (!(this.calls.get(name) instanceof Map)) {
+                if (this.debug > 0) console.error("Callback was not a map! Got ", typeof this.calls.get(name), "instead.");
                 return;
             }
             if (this.debug > 2) console.log(`Executing callbacks for "${name}"`);
-            for (const callback of this.calls[name].values()) {
+            for (const callback of this.calls.get(name).values()) {
                 if (callback === null || typeof callback !== 'function') {
                     if (this.debug > 1) console.warn(`Callback registered for "${name}" is null or not a function`);
                     continue;
